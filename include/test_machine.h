@@ -25,6 +25,11 @@
 #define TEST_MACHINE_COLOR_GREEN     "\033[92m"
 #define TEST_MACHINE_COLOR_CLEAR     "\033[0m"
 
+/**
+ * Main function which used by test runner
+ */
+int tm_t_test_main();
+
 #define TEST_MACHINE_FPRINTF_COLORED(color, file, fmt, ...)                  \
         fprintf(file, color fmt TEST_MACHINE_COLOR_CLEAR, ##__VA_ARGS__)
 

@@ -8,7 +8,10 @@
 
 TEST(Stack, StackDumps) {
 	CPPVECTOR_CREATE(pv, int);
-	CPPVECTOR_DUMP(&pv, stderr);
+
+	PVECTOR_ONDEBUG(
+		CPPVECTOR_DUMP(&pv, stderr);
+	);
 
 	pv.push_back(1234);
 	pv.push_back(432);
@@ -20,7 +23,9 @@ TEST(Stack, StackDumps) {
 	pv.pop_back(&a);
 	ASSERT_EQ(a, 432);
 
-	pv.dump(stderr);
+	PVECTOR_ONDEBUG(
+		pv.dump(stderr);
+	);
 }
 
 #endif /* __cplusplus */

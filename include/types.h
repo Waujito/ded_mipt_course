@@ -9,6 +9,11 @@ enum status_codes {
 	S_FAIL	= -1
 };
 
+#if defined (NDEBUG) && defined (_CT_DEBUG)
+#undef _CT_DEBUG
+#endif
+
+
 #define _CT_FAILED(status)		(status != S_OK)
 #define _CT_SUCCEEDED(status)		(status == S_OK)
 

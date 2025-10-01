@@ -20,10 +20,14 @@ TEST(PVector, PvectorDumps) {
 	// pv.len--;
 	// pv.arr++;
 
-	PVECTOR_DUMP(&pv, stderr);
+	PVECTOR_ONDEBUG(
+		PVECTOR_DUMP(&pv, stderr);
+	);
 
 	pv.arr[0] = 0x11;
-	PVECTOR_DUMP(&pv, stderr);
+	PVECTOR_ONDEBUG(
+		PVECTOR_DUMP(&pv, stderr);
+	);
 	ASSERT_EQ((int) pvector_verify(&pv), (int)DS_ARRAY_HASH_CORRUPT);
 	pv.arr[0] = 0xdd;
 	ASSERT_EQ((int) pvector_verify(&pv), 0);
@@ -35,6 +39,8 @@ TEST(PVector, PvectorDumpRaw) {
 	struct pvector pv = {0};
 	pvector_init(&pv, sizeof (int));
 
-	pvector_dump(&pv, stderr);
+	PVECTOR_ONDEBUG(
+		pvector_dump(&pv, stderr);
+	);
 	pvector_destroy(&pv);
 }

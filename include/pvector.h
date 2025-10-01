@@ -13,7 +13,9 @@
 #define PV_Nullable_
 #endif
 
+#ifdef _CT_DEBUG
 #define PVECTOR_DEBUG
+#endif
 
 #ifdef PVECTOR_DEBUG
 	#define PVECTOR_ONDEBUG(...) __VA_ARGS__

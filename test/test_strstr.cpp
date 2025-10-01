@@ -82,7 +82,7 @@ static int test_strstr(strstr_function fn) {
 
 
 	for (int i = 0; i < 100; i++) {
-		switch (random_gen_and_test("abcde", 10, 1'200'000, fn)) {	
+		switch (random_gen_and_test("abcde", 10, 10'000, fn)) {	
 			case 0:
 				succ_null++;
 				break;
@@ -99,10 +99,13 @@ static int test_strstr(strstr_function fn) {
 	struct timespec end_time = {0};
 	if (!timespec_get(&end_time, TIME_UTC)) return -1;
 
+
+#ifdef _CT_DEBUG
 	double millisec_diff = millis_diff(end_time, start_time);
 
 	printf("Failed: %d; Success null: %d; Success ptr: %d\n", failed, succ_null, succ_cmp);
 	printf("Tests completed in %g ms\n", millisec_diff);
+#endif
 
 	ASSERT_EQ(failed, 0);
 

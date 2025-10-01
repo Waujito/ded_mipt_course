@@ -49,7 +49,6 @@ static void test_strtok_r(const char *strtok_test_string, const char *strtok_tes
 		my_test_ptr	= NULL;
 		stdlib_test_ptr	= NULL;
 
-		printf("<%s> <%s>\n", my_stt, stdlib_stt);
 		ASSERT_EQ((int)(stdlib_stt != NULL), 1);
 		ASSERT_EQ((int)(
 			(my_stt - my_test_string) == (stdlib_stt - stdlib_test_string)

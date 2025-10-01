@@ -122,7 +122,7 @@ static int test_runner(struct test_unit *test) {
 	return failed;
 }
 
-int main() {
+int tm_t_test_main() {
 	int ret = 0;
 
 	TM_T_PRINT_DEBUG("In main() \n");
@@ -153,3 +153,10 @@ int main() {
 
 	return EXIT_SUCCESS;
 }
+
+/*
+ * Use as:
+int main() {
+	tm_t_test_main();
+}
+*/
