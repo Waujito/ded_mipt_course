@@ -30,7 +30,7 @@ export CXX CFLAGS
 
 BUILD_DIR := build
 
-LIBSRC := src/strfuncs.cpp src/strsplit.cpp src/strstr.cpp src/sort.cpp src/pvector.cpp src/hash.cpp src/gdb_assertions.cpp src/data_structure.cpp src/argparse.cpp src/test_machine.cpp
+LIBSRC := src/strfuncs.cpp src/strsplit.cpp src/strstr.cpp src/sort.cpp src/pvector.cpp src/hash.cpp src/gdb_assertions.cpp src/data_structure.cpp src/argparse.cpp src/test_machine.cpp src/ctio.cpp
 LIBOBJ := $(LIBSRC:%.cpp=$(BUILD_DIR)/%.o)
 STATIC_LIB := $(BUILD_DIR)/tasks_lib.a
 
@@ -62,7 +62,7 @@ endef
 
 .PHONY: build clean run test document build_test objdirs
 
-build: $(APP) $(STATIC_LIB)
+build: $(STATIC_LIB)
 	$(INCFIRE)
 
 run: build
