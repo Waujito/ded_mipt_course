@@ -508,6 +508,27 @@ DSError_t pvector_pop_back(struct pvector *pv, void *ptr) {
 	return DS_OK;
 }
 
+int pvector_bubble_sort(struct pvector *pv, alg_sorting_comparator comparator) {
+	assert (pv);
+	assert (comparator);
+
+	return alg_bubble_sort(pv->arr, pv->len, pv->el_size, comparator);
+}
+
+int pvector_merge_sort(struct pvector *pv, alg_sorting_comparator comparator) {
+	assert (pv);
+	assert (comparator);
+
+	return alg_merge_sort(pv->arr, pv->len, pv->el_size, comparator);
+}
+
+int pvector_quick_sort(struct pvector *pv, alg_sorting_comparator comparator) {
+	assert (pv);
+	assert (comparator);
+
+	return alg_quick_sort(pv->arr, pv->len, pv->el_size, comparator);
+}
+
 DSError_t pvector_verify(const struct pvector *pv) {
 	assert (pv);
 	DSError_t error = DS_OK;

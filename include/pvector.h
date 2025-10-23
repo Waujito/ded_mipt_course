@@ -6,6 +6,7 @@
 #include <assert.h>
 
 #include "types.h"
+#include "sort.h"
 #include "data_structure.h"
 
 #ifndef _Nullable
@@ -108,6 +109,26 @@ static inline DSError_t pvector_top(struct pvector *pv, void **dst) {
 		return DS_INVALID_STATE;
 	}
 }
+
+typedef int (*pv_sorting_function)(struct pvector *lines_arr,
+				   alg_sorting_comparator comparator);
+
+
+int pvector_bubble_sort(struct pvector *lines_arr,
+			alg_sorting_comparator comparator);
+
+int pvector_merge_sort(struct pvector *lines_arr,
+		       alg_sorting_comparator comparator);
+
+int pvector_quick_sort(struct pvector *lines_arr,
+		       alg_sorting_comparator comparator);
+
+static inline int pvector_sort(struct pvector *lines_arr,
+			       alg_sorting_comparator comparator) {
+	return pvector_merge_sort(lines_arr, comparator);
+}
+
+
 
 #ifdef __cplusplus
 
