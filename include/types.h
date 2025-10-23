@@ -22,6 +22,7 @@ enum status_codes {
 #define	_CT_FAIL(...)	{ ret = S_FAIL; goto exit; } (void)0	
 
 #define _CT_CHECKED(cmd)	{ if (_CT_FAILED(ret = (cmd))) goto exit; } (void)0
+#define _CT_FAIL_NONZERO(cmd)	{ if (cmd) _CT_FAIL(); } (void)0
 
 #define eprintf(...) fprintf(stderr, __VA_ARGS__)
 
