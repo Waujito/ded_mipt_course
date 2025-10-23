@@ -286,6 +286,24 @@ DSError_t pvector_set_capacity(struct pvector *pv, size_t new_capacity) {
 	return DS_OK;
 }
 
+DSError_t pvector_empty(struct pvector *pv) {
+	assert (pv);
+	PVECTOR_VERIFY_AND_RETURN(pv);
+
+#ifdef PVECTOR_POISONING
+	if (old_capacity < new_capacity) {
+		memset(pv->arr,
+			PVECTOR_DEBUG_POISON,
+			pv->len * pv->el_size
+		);
+	}
+#endif /* PVECTOR_POISONING */
+
+	pv->len = 0;
+	pvector_rehash(pv);
+	return DS_OK;
+}
+
 DSError_t pvector_destroy(struct pvector *pv) {
 	assert (pv);
 	// Should I do something to free the pointer when verification fails?

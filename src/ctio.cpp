@@ -7,6 +7,7 @@
 
 #include "types.h"
 #include "ctio.h"
+#include "pvector.h"
 
 ssize_t get_file_size(FILE *file) {
 #ifndef FGETSIZE_USE_FSEEK
@@ -87,4 +88,72 @@ _CT_EXIT_POINT:
 	}
 
 	return ret;
+}
+
+int read_lines(char *text_buf, size_t buflen, struct pvector *lines_arr) {
+	assert (text_buf);
+	assert (lines_arr);
+
+	char *start_lineptr = text_buf;
+	size_t line_sz = 1;
+	char *cur_lineptr = start_lineptr;
+
+	// left_size is read_bytes instead of read_bytes - 1 because of \0 term
+	for (size_t i = 0; i < buflen; i++, cur_lineptr++, line_sz++) {
+		if (*cur_lineptr == '\n' || *cur_lineptr == '\0') {
+			*cur_lineptr = '\0';
+
+			assert (line_sz >= 1);
+
+			struct text_line t_line = {
+				.line_ptr = start_lineptr,
+				.line_sz = line_sz - 1,
+			};
+
+			if (pvector_push_back(lines_arr, &t_line) < 0) {
+				return S_FAIL;
+			}
+
+			start_lineptr = cur_lineptr + 1;
+			line_sz = 0;
+		}
+	}
+
+	return S_OK;
+}
+
+size_t count_lines(const char *text_buf, size_t buflen) {
+	assert (text_buf);
+
+	size_t nlines = 1;
+	for (size_t i = 0; i < buflen; i++) {
+		if (text_buf[i] == '\n' || text_buf[i] == '\0')
+			nlines++;
+	}
+
+	return nlines;
+}
+
+int pvector_read_lines(struct pvector *text_lines, char *buf, size_t buflen) {
+	assert (text_lines);
+	assert (buf);
+
+	int ret = 0;
+
+	ret = pvector_init(text_lines, sizeof(struct text_line));
+	if (ret) {
+		log_perror("pvector_init");
+		return S_FAIL;
+	}
+
+	size_t nlines = count_lines(buf, buflen);
+
+	pvector_set_capacity(text_lines, nlines + 1);
+
+	if (read_lines(buf, buflen, text_lines)) {
+		pvector_destroy(text_lines);
+		return S_FAIL;
+	}
+
+	return S_OK;
 }

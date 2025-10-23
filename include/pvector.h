@@ -86,6 +86,8 @@ DSError_t pvector_set_element_destructor(struct pvector *pv,
 
 DSError_t pvector_set_capacity(struct pvector *pv, size_t new_cap);
 
+DSError_t pvector_empty(struct pvector *pv);
+
 DSError_t pvector_destroy(struct pvector *pv);
 
 DSError_t pvector_push_back(struct pvector *pv, const void *ptr);
