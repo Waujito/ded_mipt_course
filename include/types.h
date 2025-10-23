@@ -4,6 +4,11 @@
 #include <stdio.h>
 #include <errno.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 enum status_codes {
 	S_OK	= 0,
 	S_FAIL	= -1
@@ -63,5 +68,9 @@ void _i_assert_gdb_fork(void);
 
 #define ct_close(fd)	if ((fd) >= 0) close(fd)
 #define ct_fclose(file)	if ((file)) fclose(file)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* TYPES_H */

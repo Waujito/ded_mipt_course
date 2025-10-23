@@ -1,6 +1,8 @@
 #ifndef PVECTOR_H
 #define PVECTOR_H
 
+
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <assert.h>
@@ -8,6 +10,10 @@
 #include "types.h"
 #include "sort.h"
 #include "data_structure.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifndef _Nullable
 #define _Nullable
@@ -128,6 +134,9 @@ static inline int pvector_sort(struct pvector *lines_arr,
 	return pvector_merge_sort(lines_arr, comparator);
 }
 
+#ifdef __cplusplus
+}
+#endif
 
 
 #ifdef __cplusplus

@@ -90,7 +90,7 @@ char *my_strstr_zfunction(char *haystack, const char *needle) {
 }
 
 typedef int64_t hash_t;
-static const hash_t HASH_MOD = 1'000'000'007;
+static const hash_t HASH_MOD = 1000000007;
 
 struct hash_st {
 	hash_t hash;
@@ -173,7 +173,7 @@ char *my_strstr_hash(char *haystack, const char *needle) {
 	return NULL;
 }
 
-const static size_t BOYER_MOORE_ALPHABET_STRENGTH = 256;
+#define BOYER_MOORE_ALPHABET_STRENGTH (256)
 char *my_strstr_boyer_moore(char *haystack, const char *needle) {
 	assert (haystack);
 	assert (needle);

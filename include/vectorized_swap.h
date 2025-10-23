@@ -6,6 +6,11 @@
 #include <string.h>
 #include <assert.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #define ES_SWAP_BYTES_(p1, p2, dtype) {		\
 	dtype dt1 = 0;				\
 	memcpy(&dt1, p1, sizeof(dt1));		\
@@ -45,5 +50,9 @@ static int vectorized_swap(char *p1, char *p2, size_t sz) {
 }
 
 #undef ES_SWAP_BYTES_
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* VECTORIZED_SWAP_H */

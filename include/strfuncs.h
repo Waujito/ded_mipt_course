@@ -3,7 +3,12 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stddef.h>
+#include <sys/types.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 size_t my_strlen(const char *s);
 
@@ -24,5 +29,9 @@ char *my_strdup(const char *s);
 ssize_t my_getline(char **lineptr, size_t *n, FILE *stream);
 
 char *my_strtok_r(char *str, const char *delim, char **saveptr);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* STRFUNCS_H */

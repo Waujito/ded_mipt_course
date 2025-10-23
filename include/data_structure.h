@@ -1,7 +1,14 @@
+
+
 #ifndef	DATA_STRUCTURE_H
 #define DATA_STRUCTURE_H
 
 #include "types.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 // ======================================================
 // Debug symbols
@@ -70,4 +77,9 @@ typedef unsigned int DSError_t;
 
 int fprint_DSError(FILE *stream, DSError_t derror);
 
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* DATA_STRUCTURE_H */
+

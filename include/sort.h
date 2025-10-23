@@ -3,6 +3,11 @@
 
 #include <stdlib.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 typedef int (*alg_sorting_comparator)(const void *, const void *);
 
 typedef int (*alg_sorting_function)(void *arr, size_t n, size_t size,
@@ -25,5 +30,10 @@ static inline int alg_sort(void *arr, size_t nmemb, size_t size,
 	return alg_merge_sort(arr, nmemb, size, comparator);
 	// return alg_quick_sort(arr, nmemb, size, comparator);
 }
+
+#ifdef __cplusplus
+}
+#endif
+
 
 #endif /* SORT_H */

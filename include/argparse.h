@@ -7,6 +7,10 @@
 #ifndef ARGPARSE_H
 #define ARGPARSE_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 enum has_arg_vals {
 	REQUIRED_ARGUMENT,
@@ -78,5 +82,9 @@ typedef int (*args_callback)(struct args_context ctx);
 int parse_args(int argc, const char *argv[],
 	       struct option opts[],
 	       args_callback callback, void *context);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* ARGPARSE_H */

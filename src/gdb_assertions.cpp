@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <poll.h>
 #include <fcntl.h>
 #include <string.h>
