@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -12,7 +13,7 @@
 static double millis_diff (struct timespec end_time, struct timespec start_time) {
 	double sec_diff = (double)(end_time.tv_sec - start_time.tv_sec);
 	double nsec_diff = (double)(end_time.tv_nsec - start_time.tv_nsec);
-	double millisec_diff = sec_diff * 1'000 + nsec_diff / 1'000'000;
+	double millisec_diff = sec_diff * 1000 + nsec_diff / 1000000;
 
 	return millisec_diff;
 }
@@ -82,7 +83,7 @@ static int test_strstr(strstr_function fn) {
 
 
 	for (int i = 0; i < 100; i++) {
-		switch (random_gen_and_test("abcde", 10, 10'000, fn)) {	
+		switch (random_gen_and_test("abcde", 10, 10000, fn)) {	
 			case 0:
 				succ_null++;
 				break;

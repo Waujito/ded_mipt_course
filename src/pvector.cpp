@@ -290,15 +290,6 @@ DSError_t pvector_empty(struct pvector *pv) {
 	assert (pv);
 	PVECTOR_VERIFY_AND_RETURN(pv);
 
-#ifdef PVECTOR_POISONING
-	if (old_capacity < new_capacity) {
-		memset(pv->arr,
-			PVECTOR_DEBUG_POISON,
-			pv->len * pv->el_size
-		);
-	}
-#endif /* PVECTOR_POISONING */
-
 	pv->len = 0;
 	pvector_rehash(pv);
 	return DS_OK;

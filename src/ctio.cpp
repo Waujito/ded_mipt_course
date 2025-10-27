@@ -111,7 +111,7 @@ int read_lines(char *text_buf, size_t buflen, struct pvector *lines_arr) {
 				.line_sz = line_sz - 1,
 			};
 
-			if (pvector_push_back(lines_arr, &t_line) < 0) {
+			if (pvector_push_back(lines_arr, &t_line)) {
 				return S_FAIL;
 			}
 
@@ -139,10 +139,7 @@ int pvector_read_lines(struct pvector *text_lines, char *buf, size_t buflen) {
 	assert (text_lines);
 	assert (buf);
 
-	int ret = 0;
-
-	ret = pvector_init(text_lines, sizeof(struct text_line));
-	if (ret) {
+	if (pvector_init(text_lines, sizeof(struct text_line))) {
 		log_perror("pvector_init");
 		return S_FAIL;
 	}
