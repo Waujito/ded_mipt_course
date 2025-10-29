@@ -60,16 +60,18 @@ struct ds_debug {
 
 
 enum DSError {
-	DS_OK			= 0,
-	DS_ALLOCATION		= 1 << 0,
-	DS_INVALID_ARG		= 1 << 1,
-	DS_INVALID_STATE	= 1 << 2,
-	DS_POISONED		= 1 << 3,
-	DS_STRUCT_CORRUPT	= 1 << 4,
-	DS_INVALID_POINTER	= 1 << 5,
-	DS_CANARY_CORRUPT	= 1 << 6,
-	DS_STRUCT_HASH_CORRUPT	= 1 << 7,
-	DS_ARRAY_HASH_CORRUPT	= 1 << 8,
+	DS_OK				= 0,
+	DS_ALLOCATION			= 1 << 0,
+	DS_INVALID_ARG			= 1 << 1,
+	DS_INVALID_STATE		= 1 << 2,
+	DS_POISONED			= 1 << 3,
+	DS_STRUCT_CORRUPT		= 1 << 4,
+	DS_INVALID_POINTER		= 1 << 5,
+	DS_CANARY_CORRUPT		= 1 << 6,
+	DS_STRUCT_HASH_CORRUPT		= 1 << 7,
+	DS_ARRAY_HASH_CORRUPT		= 1 << 8,
+	DS_LIST_CONNECTIVITY_CORRUPT	= 1 << 9,
+	DS_LIST_CONN_BACKWARD_CORRUPT	= 1 << 10,
 }; 
 
 typedef unsigned int DSError_t;

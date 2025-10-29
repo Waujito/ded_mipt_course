@@ -4,8 +4,8 @@ CDEBUG_FLAGS := -D _CT_DEBUG -ggdb3 -O0 -Wall -Wextra -Waggressive-loop-optimiza
 
 CFLAGS = -Iinclude 
 
-# override CFLAGS += $(CDEBUG_FLAGS) 
-override CFLAGS += -DNDEBUG
+override CFLAGS += $(CDEBUG_FLAGS) 
+# override CFLAGS += -DNDEBUG
 
 CXXFLAGS := $(CFLAGS) -Weffc++ -Wc++14-compat -Wconditionally-supported -Wctor-dtor-privacy -Wnon-virtual-dtor -Woverloaded-virtual -Wsign-promo -Wstrict-null-sentinel -Wsuggest-override -Wno-literal-suffix -Wno-old-style-cast -std=c++17 -fsized-deallocation
 
@@ -30,14 +30,14 @@ export CXX CFLAGS
 
 BUILD_DIR := build
 
-LIBSRC := src/strfuncs.cpp src/strsplit.cpp src/strstr.cpp src/sort.cpp src/pvector.cpp src/hash.cpp src/gdb_assertions.cpp src/data_structure.cpp src/argparse.cpp src/test_machine.cpp src/ctio.cpp
+LIBSRC := src/strfuncs.cpp src/strsplit.cpp src/strstr.cpp src/sort.cpp src/pvector.cpp src/hash.cpp src/gdb_assertions.cpp src/data_structure.cpp src/argparse.cpp src/test_machine.cpp src/ctio.cpp src/list.cpp
 LIBOBJ := $(LIBSRC:%.cpp=$(BUILD_DIR)/%.o)
 STATIC_LIB := $(BUILD_DIR)/tasks_lib.a
 
 TESTLIBSRC := test/test_runner.cpp
 TESTLIBOBJ := $(TESTLIBSRC:%.cpp=$(BUILD_DIR)/%.o)
 
-TESTSRC := test/test_strstr.cpp test/test_strfuncs.cpp test/test_cppvector.cpp test/test_crc32.cpp test/test_pvector.cpp
+TESTSRC := test/test_strstr.cpp test/test_strfuncs.cpp test/test_cppvector.cpp test/test_crc32.cpp test/test_pvector.cpp test/test_list.cpp test/test_list_unit.cpp
 TESTOBJ := $(TESTSRC:%.cpp=$(BUILD_DIR)/%.o)
 TEST_LIB_APP := $(BUILD_DIR)/test_tasks
 

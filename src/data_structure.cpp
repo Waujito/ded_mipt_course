@@ -21,15 +21,17 @@ int fprint_DSError(FILE *stream, DSError_t derror) {
 			err_ct ^= err_spec;			\
 		}
 
-	LOG_DS_ERROR_(DS_ALLOCATION,		"Allocation Error");
-	LOG_DS_ERROR_(DS_INVALID_ARG,		"Invalid Argument");
-	LOG_DS_ERROR_(DS_INVALID_STATE,		"Invalid State");
-	LOG_DS_ERROR_(DS_POISONED,		"Poisoned Storage");
-	LOG_DS_ERROR_(DS_STRUCT_CORRUPT,	"Structure Corrupted");
-	LOG_DS_ERROR_(DS_INVALID_POINTER,	"Invalid Pointer");
-	LOG_DS_ERROR_(DS_CANARY_CORRUPT,	"The Canary Corrupted");
-	LOG_DS_ERROR_(DS_STRUCT_HASH_CORRUPT,	"Structure Hash Corrupted");
-	LOG_DS_ERROR_(DS_ARRAY_HASH_CORRUPT,	"Array Hash Corrupted");
+	LOG_DS_ERROR_(DS_ALLOCATION,			"Allocation Error");
+	LOG_DS_ERROR_(DS_INVALID_ARG,			"Invalid Argument");
+	LOG_DS_ERROR_(DS_INVALID_STATE,			"Invalid State");
+	LOG_DS_ERROR_(DS_POISONED,			"Poisoned Storage");
+	LOG_DS_ERROR_(DS_STRUCT_CORRUPT,		"Structure Corrupted");
+	LOG_DS_ERROR_(DS_INVALID_POINTER,		"Invalid Pointer");
+	LOG_DS_ERROR_(DS_CANARY_CORRUPT,		"The Canary Corrupted");
+	LOG_DS_ERROR_(DS_STRUCT_HASH_CORRUPT,		"Structure Hash Corrupted");
+	LOG_DS_ERROR_(DS_ARRAY_HASH_CORRUPT,		"Array Hash Corrupted");
+	LOG_DS_ERROR_(DS_LIST_CONNECTIVITY_CORRUPT,	"List Connectivity Corrupt");
+	LOG_DS_ERROR_(DS_LIST_CONN_BACKWARD_CORRUPT,	"List Backward Connectivity Corrupt");
 
 	#undef LOG_DS_ERROR_
 
