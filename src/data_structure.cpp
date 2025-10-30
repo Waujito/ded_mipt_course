@@ -32,7 +32,11 @@ int fprint_DSError(FILE *stream, DSError_t derror) {
 	LOG_DS_ERROR_(DS_ARRAY_HASH_CORRUPT,		"Array Hash Corrupted");
 	LOG_DS_ERROR_(DS_LIST_CONNECTIVITY_CORRUPT,	"List Connectivity Corrupt");
 	LOG_DS_ERROR_(DS_LIST_CONN_BACKWARD_CORRUPT,	"List Backward Connectivity Corrupt");
-	LOG_DS_ERROR_(DS_INFINITY_CYCLE,	"Infinity cycle detected");
+	LOG_DS_ERROR_(DS_INFINITY_FORWARD_CYCLE,	
+		"Infinity cycle in forward list detected");
+	LOG_DS_ERROR_(DS_INFINITY_BACKWARD_CYCLE,	
+	       "Infinity cycle in backward list detected");
+	LOG_DS_ERROR_(DS_INFINITY_FREE_CYCLE,	"Infinity cycle in free list detected");
 
 
 	#undef LOG_DS_ERROR_

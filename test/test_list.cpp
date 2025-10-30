@@ -76,16 +76,18 @@ TEST(List, ListOperates) {
 	for (list_ptr_t i = 2; i < 16; i+=3) {
 		ASSERT_DSERROR(list_drop(&list, i), DS_OK);
 	}
+	list.array[10].prev = 9;
 	dump_params.drawing_filename = "list_graph4.png";
 	list_dump(&list, dump_params);
 	fflush(dump_file);
 
 	list.array[3].next = 1999;
 	list.array[4].next = 8939;
+	list.array[6].prev = 9199;
+	list.array[8].next = 10;
 	dump_params.drawing_filename = "list_graph5.png";
 	list_dump(&list, dump_params);
 	fflush(dump_file);
-
 
 
 	fclose(dump_file);

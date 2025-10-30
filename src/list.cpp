@@ -157,6 +157,35 @@ DSError_t list_drop(struct list *list, list_ptr_t node_ptr) {
 	return DS_OK;
 }
 
+static DSError_t is_node_corrupt(struct list *list, list_ptr_t idx) {
+	assert (list);
+
+	DSError_t ret = DS_OK;
+
+	if (idx > (list_ptr_t)list->used_capacity || idx < 0) {
+		ret |= DS_INVALID_ARG;
+		return ret;
+	}
+
+	list_node_t *node = &list->array[idx];
+	if (	node->next > (list_ptr_t)list->used_capacity	||
+		node->next < 0					||
+		// prev might be -1 and it is just a free indicator
+		node->prev > (list_ptr_t)list->used_capacity) {
+
+		ret |= DS_LIST_CONNECTIVITY_CORRUPT;
+	}
+
+	if (	node->next < (list_ptr_t)list->used_capacity	&&
+		node->prev == LIST_PREV_FREE			&&
+		node->next != LIST_ROOT_EL			&&
+		list->array[node->next].prev != LIST_PREV_FREE) {
+		ret |= DS_LIST_CONNECTIVITY_CORRUPT;
+	}
+
+	return ret;
+}
+
 DSError_t list_verify(struct list *list) {
 	assert (list);
 
@@ -182,7 +211,6 @@ DSError_t list_verify(struct list *list) {
 			break;
 		}
 
-
 		list_node_t *node = &list->array[inode];
 
 		if (node->prev != rprev) {
@@ -192,10 +220,10 @@ DSError_t list_verify(struct list *list) {
 		rprev = inode;
 		gathered_capacity++;
 
-
 		// Check for cycles
 		if (gathered_capacity > list->used_capacity) {
-			ret |= DS_INFINITY_CYCLE;
+			ret |= DS_INFINITY_FORWARD_CYCLE;
+			break;
 		}
 	}
 
@@ -217,14 +245,35 @@ DSError_t list_verify(struct list *list) {
 		rprev = inode;
 		gathered_capacity++;
 
+		// Check for cycles
 		if (gathered_capacity > list->used_capacity) {
-			ret |= DS_INFINITY_CYCLE;
+			ret |= DS_INFINITY_FREE_CYCLE;
+			break;
 		}
 	}
 
 	if (gathered_capacity != list->used_capacity) {
 		ret |= DS_LIST_CONNECTIVITY_CORRUPT;
 	}
+
+	size_t backward_capacity = 1;
+
+	for (list_ptr_t inode = root->prev; inode != LIST_ROOT_EL;
+			inode = list->array[inode].prev) {
+
+		if (inode > (list_ptr_t)list->used_capacity) {
+			ret |= DS_INVALID_POINTER;
+			break;
+		}
+
+		backward_capacity++;
+
+		// Check for cycles
+		if (backward_capacity > list->used_capacity) {
+			ret |= DS_INFINITY_BACKWARD_CYCLE;
+			break;
+		}
+	}	
 
 
 	return ret;
@@ -298,6 +347,10 @@ DSError_t list_dump(struct list *list,
 
 	fprint_DSError(params.out_stream, verifier_verdict);
 	DUMP_LOG("\n\n");
+	if (verifier_verdict & DS_INFINITY_CYCLE) {
+		DUMP_LOG("<h2 style=\"color:red\">An infinity cycle is hidden somewhere! Good Luck finding it!</h2>\n");
+		DUMP_LOG("\n\n");
+	}
 
 	list_node_t *root = list->array;
 	if (!root) {
@@ -370,7 +423,7 @@ DSError_t list_graph_dump_dot(struct list *list, FILE *dot_file) {
 	DOT_PRINTF("rankdir=LR;\n");
 	DOT_PRINTF("node [shape=tripleoctagon, style=filled, fillcolor=red];\n");
 	DOT_PRINTF("edge [shape=inv, arrowsize=1.0];\n\n");
-	DOT_PRINTF("splines=ortho;\n");
+	// DOT_PRINTF("splines=ortho;\n");
 
 	list_node_t *root = list->array;
     
@@ -379,7 +432,7 @@ DSError_t list_graph_dump_dot(struct list *list, FILE *dot_file) {
 		return DS_OK;
 	}
 
-	DOT_PRINTF("{");
+	DOT_PRINTF("{\n");
 
 	DOT_PRINTF("node0 [label=\"ROOT | "
 	    "prev=%zd | next=%zd | list_free_head=%zd | value=%d\""
@@ -398,7 +451,13 @@ DSError_t list_graph_dump_dot(struct list *list, FILE *dot_file) {
 			box_color = "lightcoral";
 		}
 
-		DOT_PRINTF("node%zd [label=\"%zd | <f1> prev=%zd | <f2> next=%zd | <f3> value=%d\", fillcolor=\"%s\", shape=Mrecord];\n", i, i, node->prev, node->next, node->value, box_color);
+		// if (is_node_corrupt(list, i)) {
+		// 	box_color = "red";
+		// }
+
+		DOT_PRINTF("node%zd [label=\"%zd | prev=%zd | "
+			"next=%zd | value=%d\", fillcolor=\"%s\", shape=Mrecord];\n", 
+			i, i, node->prev, node->next, node->value, box_color);
 	}
 
 	DOT_PRINTF("{");
@@ -411,24 +470,42 @@ DSError_t list_graph_dump_dot(struct list *list, FILE *dot_file) {
 	}
 	DOT_PRINTF("[style=invis]}");
 
-	DOT_PRINTF("}");
+	DOT_PRINTF("}\n");
 
 	for (list_ptr_t i = 0; i < (list_ptr_t)list->used_capacity; i++) {
 		list_node_t *node = &list->array[i];
 		list_node_t *next_node = list->array + node->next;
 
-		if (	node->next < (list_ptr_t)list->used_capacity &&
-			next_node->prev == i) {
-			DOT_PRINTF("node%zd -> node%zd [dir=both];\n",
-				i, node->next);
-		} else {
-			DOT_PRINTF("node%zd -> node%zd [color=red];\n",
-				i, node->next);
+		if (node->next >= (list_ptr_t)list->used_capacity) {
+			next_node = NULL;
 		}
+
+		const char *dir = "";
+		const char *color = "";
+		int bold = 0;
+
+		if (next_node && next_node->prev == i) {
+			dir = "dir=both,";
+		}
+
+		if (is_node_corrupt(list, i)) {
+			color = "color=red,";
+			bold = 1;
+		}
+
+		if (node->prev == LIST_PREV_FREE) {
+			color = "color=red,";
+		}
+
+		DOT_PRINTF("node%zd -> node%zd [%s %s %s];\n",
+				i, node->next, 
+				color,
+				dir,
+				(bold	? "penwidth=3"	: ""));
 	}
 
 	if (list->list_free_head != LIST_ROOT_EL) {
-		DOT_PRINTF("\tnode0 -> node%zd [color=red];\n", 
+		DOT_PRINTF("node0 -> node%zd [color=red];\n", 
 			list->list_free_head);
 	}
 
@@ -439,14 +516,14 @@ DSError_t list_graph_dump_dot(struct list *list, FILE *dot_file) {
 	DOT_PRINTF("head -> node%zd [color=blue];\n", root->next);
 	DOT_PRINTF("tail -> node%zd [color=blue];\n", root->prev);
 
-	DOT_PRINTF("head->tail [style=invis];");
+	DOT_PRINTF("head->tail [style=invis];\n");
 
 	if (list->list_free_head != LIST_ROOT_EL) {
 		DOT_PRINTF("free [label=FREE, shape=hexagon, fillcolor=gray];\n");
 		DOT_PRINTF("free -> node%zd [color=blue];\n", list->list_free_head);
-		DOT_PRINTF("tail->free [style=invis];");
+		DOT_PRINTF("tail->free [style=invis];\n");
 	}
-	DOT_PRINTF("}");
+	DOT_PRINTF("}\n");
        
 	DOT_PRINTF("}\n");
 
