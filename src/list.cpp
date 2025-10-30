@@ -12,6 +12,7 @@
 
 #define INITIAL_CAPACITY (128)
 #define LIST_ROOT_EL (0)
+#define LIST_PREV_FREE (-1)
 
 DSError_t list_ctor(struct list *list) {
 	assert (list);
@@ -19,6 +20,7 @@ DSError_t list_ctor(struct list *list) {
 	list->array = NULL;
 	list->capacity = 0;
 	list->used_capacity = 0;
+	list->list_free_head = LIST_ROOT_EL;
 
 	return DS_OK;
 }
@@ -29,6 +31,7 @@ DSError_t list_dtor(struct list *list) {
 	free(list->array);
 	list->capacity = 0;
 	list->used_capacity = 0;
+	list->list_free_head = LIST_ROOT_EL;
 
 	return DS_OK;
 }
@@ -58,8 +61,8 @@ DSError_t list_set_capacity(struct list *list, size_t capacity) {
 
 		list_node_t *root_node = list->array;
 
-		root_node->next			= LIST_ROOT_EL;
-		root_node->list_free_head	= LIST_ROOT_EL;
+		root_node->next	= LIST_ROOT_EL;
+		root_node->prev	= LIST_ROOT_EL;
 	}
 
 	return DS_OK;
@@ -81,27 +84,19 @@ static DSError_t find_free_ptr(struct list *list, list_ptr_t *node_ptr) {
 	assert (node_ptr);
 
 
-	list_node_t *root_node = NULL;
 	list_node_t *found_node = NULL;
 	DSError_t ret = DS_OK;
 
-	if (!list->array) {
-		_CT_CHECKED(list_increment_capacity(list));
-	}
-
-	root_node = list->array;
-
-	if (root_node->list_free_head != LIST_ROOT_EL) {
-		*node_ptr = root_node->list_free_head;
+	if (list->list_free_head != LIST_ROOT_EL) {
+		*node_ptr = list->list_free_head;
 		found_node = &list->array[*node_ptr];
-		root_node->list_free_head = found_node->next;
-		list->array[root_node->list_free_head].prev = LIST_ROOT_EL;
+		list->list_free_head = found_node->next;
 	} else {
 		if (list->used_capacity >= list->capacity) {
 			_CT_CHECKED(list_increment_capacity(list));
 		}
 
-		*node_ptr = list->used_capacity++;
+		*node_ptr = (ssize_t)(list->used_capacity++);
 		found_node = &list->array[*node_ptr];
 	}
 
@@ -130,15 +125,13 @@ DSError_t list_insert(struct list *list, list_ptr_t parent,
 	new_node->next		= parent_node->next;
 	parent_node->next	= node_ptr;
 
-	if (new_node->next != LIST_ROOT_EL) {
-		list->array[new_node->next].prev = node_ptr;
-	}
+	list->array[new_node->next].prev = node_ptr;
 	
+	new_node->value = value;
+
 	if (new_node_ptr) {
 		*new_node_ptr = node_ptr;
 	}
-
-	new_node->value = value;
 
 _CT_EXIT_POINT:
 	return ret;
@@ -152,20 +145,14 @@ DSError_t list_drop(struct list *list, list_ptr_t node_ptr) {
 	}
 
 	list_node_t *node = &list->array[node_ptr];
-	list_node_t *root = list->array;
 
 	list->array[node->prev].next = node->next;	
+	list->array[node->next].prev = node->prev;
 
-	if (node->next != LIST_ROOT_EL) {
-		list->array[node->next].prev = node->prev;
-	}
+	node->next = list->list_free_head;
+	node->prev = LIST_PREV_FREE;
 
-	node->next = root->list_free_head;
-	if (root->list_free_head != LIST_ROOT_EL) {
-		list->array[root->list_free_head].prev = node_ptr;
-	}
-	root->list_free_head = node_ptr;
-	node->prev = LIST_ROOT_EL;
+	list->list_free_head = node_ptr;
 
 	return DS_OK;
 }
@@ -189,6 +176,13 @@ DSError_t list_verify(struct list *list) {
 
 	for (list_ptr_t inode = root->next; inode != LIST_ROOT_EL;
 			inode = list->array[inode].next) {
+
+		if (inode > (list_ptr_t)list->used_capacity) {
+			ret |= DS_INVALID_POINTER;
+			break;
+		}
+
+
 		list_node_t *node = &list->array[inode];
 
 		if (node->prev != rprev) {
@@ -197,19 +191,35 @@ DSError_t list_verify(struct list *list) {
 
 		rprev = inode;
 		gathered_capacity++;
+
+
+		// Check for cycles
+		if (gathered_capacity > list->used_capacity) {
+			ret |= DS_INFINITY_CYCLE;
+		}
 	}
 
 	rprev = LIST_ROOT_EL;
-	for (list_ptr_t inode = root->list_free_head; inode != LIST_ROOT_EL;
+	for (list_ptr_t inode = list->list_free_head; inode != LIST_ROOT_EL;
 			inode = list->array[inode].next) {
+
+		if (inode > (list_ptr_t)list->used_capacity) {
+			ret |= DS_INVALID_POINTER;
+			break;
+		}
+
 		list_node_t *node = &list->array[inode];
 
-		if (node->prev != rprev) {
-			ret |= DS_LIST_CONN_BACKWARD_CORRUPT;
+		if (node->prev != LIST_PREV_FREE) {
+			ret |= DS_LIST_CONNECTIVITY_CORRUPT;
 		}
 
 		rprev = inode;
 		gathered_capacity++;
+
+		if (gathered_capacity > list->used_capacity) {
+			ret |= DS_INFINITY_CYCLE;
+		}
 	}
 
 	if (gathered_capacity != list->used_capacity) {
@@ -230,27 +240,32 @@ static DSError_t dump_elements(struct list *list,
 	assert (params);
 	assert (params->out_stream);
 
-	list_node_t *root = list->array;
-	if (!root) {
+	if (!list->array) {
 		return DS_INVALID_STATE;
 	}
 
 	DUMP_LOG("\n\tLinked elements: {\n");
-	for (list_ptr_t inode = root->next; inode != LIST_ROOT_EL;
-			inode = list->array[inode].next) {
-		list_node_t *node = &list->array[inode];
-		DUMP_LOG("\t\tnode: %zu prev: %zu next: %zu value: %d\n",
-			inode, node->prev, node->next,
-			node->value);
-	}
-	DUMP_LOG("\t}\n\tLinked frees: {\n");
+	for (size_t i = 0; i < list->used_capacity; i++) {
+		list_node_t *node = &list->array[i];
 
-	for (list_ptr_t inode = root->list_free_head; inode != LIST_ROOT_EL;
-			inode = list->array[inode].next) {
-		list_node_t *node = &list->array[inode];
-		DUMP_LOG("\t\tnode: %zu prev: %zu next: %zu value: %d\n",
-			inode, node->prev, node->next,
+		if (node->prev != LIST_PREV_FREE) {
+			DUMP_LOG("\t\tnode: %zu prev: %zd next: %zd value: %d\n",
+			i, node->prev, node->next,
 			node->value);
+
+		}
+	}
+
+	DUMP_LOG("\t}\n\tLinked frees: {\n");
+	for (size_t i = 0; i < list->used_capacity; i++) {
+		list_node_t *node = &list->array[i];
+
+		if (node->prev == LIST_PREV_FREE) {
+			DUMP_LOG("\t\tnode: %zu prev: %zd next: %zd value: %d\n",
+			i, node->prev, node->next,
+			node->value);
+
+		}
 	}
 	DUMP_LOG("\t}\n");
 
@@ -353,9 +368,9 @@ DSError_t list_graph_dump_dot(struct list *list, FILE *dot_file) {
     
 	DOT_PRINTF("digraph LinkedList {\n");
 	DOT_PRINTF("rankdir=LR;\n");
-	DOT_PRINTF("node [shape=Mrecord, style=filled];\n");
-	DOT_PRINTF("edge [shape=inv, arrowsize=2.0];\n\n");
-	// DOT_PRINTF("splines=ortho;\n");
+	DOT_PRINTF("node [shape=tripleoctagon, style=filled, fillcolor=red];\n");
+	DOT_PRINTF("edge [shape=inv, arrowsize=1.0];\n\n");
+	DOT_PRINTF("splines=ortho;\n");
 
 	list_node_t *root = list->array;
     
@@ -364,26 +379,30 @@ DSError_t list_graph_dump_dot(struct list *list, FILE *dot_file) {
 		return DS_OK;
 	}
 
-	DOT_PRINTF("node0 [label=\"<f0> ROOT | <f1> list_free_head=%zu | <f2> next=%zu | <f3> value=%d\", fillcolor=\"%s\"];\n", root->prev, root->next, root->value, "lightblue");
+	DOT_PRINTF("{");
 
-	for (list_ptr_t inode = root->next; inode != LIST_ROOT_EL;
-			inode = list->array[inode].next) {
-		list_node_t *node = &list->array[inode];
+	DOT_PRINTF("node0 [label=\"ROOT | "
+	    "prev=%zd | next=%zd | list_free_head=%zd | value=%d\""
+	    ", fillcolor=\"%s\", shape=Mrecord];\n", 
+	    root->prev, root->next, list->list_free_head,
+	    root->value, "lightblue");
 
-		DOT_PRINTF("node%zu [label=\"<f0> %zu | <f1> prev=%zu | <f2> next=%zu | <f3> value=%d\", fillcolor=\"%s\"];\n", inode, inode, node->prev, node->next, node->value, "lightgreen");
+	for (list_ptr_t i = 1; i < list->used_capacity; i++) {
+		list_node_t *node = &list->array[i];
+
+		const char *box_color = "";
+
+		if (node->prev != LIST_PREV_FREE) {
+			box_color = "lightgreen";
+		} else {
+			box_color = "lightcoral";
+		}
+
+		DOT_PRINTF("node%zd [label=\"%zd | <f1> prev=%zd | <f2> next=%zd | <f3> value=%d\", fillcolor=\"%s\", shape=Mrecord];\n", i, i, node->prev, node->next, node->value, box_color);
 	}
-    
-	for (list_ptr_t inode = root->list_free_head; inode != LIST_ROOT_EL;
-			inode = list->array[inode].next) {
-		list_node_t *node = &list->array[inode];
 
-		DOT_PRINTF("node%zu [label=\"<f0> %zu | <f1> prev=%zu | <f2> next=%zu | <f3> value=%d\", fillcolor=\"%s\"];\n", inode, inode,
-	    node->prev, node->next, node->value, "lightcoral");
-	}
-
-	// /*
-	DOT_PRINTF("{node0 ->");
-	for (size_t i = 1; i < list->used_capacity; i++) {
+	DOT_PRINTF("{");
+	for (size_t i = 0; i < list->used_capacity; i++) {
 		DOT_PRINTF("node%zu", i);
 
 		if (i != list->used_capacity - 1) {
@@ -391,49 +410,44 @@ DSError_t list_graph_dump_dot(struct list *list, FILE *dot_file) {
 		}
 	}
 	DOT_PRINTF("[style=invis]}");
-	// */
-	// DOT_PRINTF("{rank=same;");
-	// for (size_t i = 0; i < list->used_capacity; i++) {
-	// 	DOT_PRINTF("node%zu;", i);
-	// }
-	// DOT_PRINTF("};\n");
-	// DOT_PRINTF("[splines=ortho,styles=,rank=same];\n");
-    
-	for (list_ptr_t inode = root->next; inode != LIST_ROOT_EL;
-			inode = list->array[inode].next) {
-		list_node_t *node = &list->array[inode];
 
+	DOT_PRINTF("}");
 
-		// DOT_PRINTF("node%zu [label=\"<f0> %zu | <f1> prev=%zu | <f2> next=%zu | <f3> value=%d\", fillcolor=\"%s\"];\n", inode, inode, node->prev, node->next, node->value, "lightgreen");
-		if (node->next != LIST_ROOT_EL) {
-			DOT_PRINTF("node%zu -> node%zu [constraint=false];\n", inode, node->next);
+	for (list_ptr_t i = 0; i < (list_ptr_t)list->used_capacity; i++) {
+		list_node_t *node = &list->array[i];
+		list_node_t *next_node = list->array + node->next;
+
+		if (	node->next < (list_ptr_t)list->used_capacity &&
+			next_node->prev == i) {
+			DOT_PRINTF("node%zd -> node%zd [dir=both];\n",
+				i, node->next);
+		} else {
+			DOT_PRINTF("node%zd -> node%zd [color=red];\n",
+				i, node->next);
 		}
-		DOT_PRINTF("node%zu -> node%zu [constraint=false, color=\"blue\"];\n", inode, node->prev);
 	}
-    
-	for (list_ptr_t inode = root->list_free_head; inode != LIST_ROOT_EL;
-			inode = list->array[inode].next) {
-		list_node_t *node = &list->array[inode];
 
-		// DOT_PRINTF("node%zu [label=\"<f0> %zu | <f1> prev=%zu | <f2> next=%zu | <f3> value=%d\", fillcolor=\"%s\"];\n", inode, inode,
-	    // node->prev, node->next, node->value, "lightcoral");
+	if (list->list_free_head != LIST_ROOT_EL) {
+		DOT_PRINTF("\tnode0 -> node%zd [color=red];\n", 
+			list->list_free_head);
+	}
 
-		if (node->next != LIST_ROOT_EL) {
+	DOT_PRINTF("{");
+	DOT_PRINTF("head [label=HEAD, shape=hexagon, fillcolor=gray];\n");
+	DOT_PRINTF("tail [label=TAIL, shape=hexagon, fillcolor=gray];\n");
 
-		DOT_PRINTF("node%zu -> node%zu [constraint=false, color=\"red\"];\n", 
-			    inode, node->next);
-		}
-		// eprintf("gav %zu %zu\n", inode, node->prev);
-		DOT_PRINTF("node%zu -> node%zu [constraint=false, color=\"gray\"];\n", 
-			    inode, node->prev);
-	}	
+	DOT_PRINTF("head -> node%zd [color=blue];\n", root->next);
+	DOT_PRINTF("tail -> node%zd [color=blue];\n", root->prev);
 
-	DOT_PRINTF("node0 -> node%zu;\n", root->next);
+	DOT_PRINTF("head->tail [style=invis];");
 
-	DOT_PRINTF("\tnode0 -> node%zu [color=\"red\"];\n", 
-		root->list_free_head);
-
-    
+	if (list->list_free_head != LIST_ROOT_EL) {
+		DOT_PRINTF("free [label=FREE, shape=hexagon, fillcolor=gray];\n");
+		DOT_PRINTF("free -> node%zd [color=blue];\n", list->list_free_head);
+		DOT_PRINTF("tail->free [style=invis];");
+	}
+	DOT_PRINTF("}");
+       
 	DOT_PRINTF("}\n");
 
 #undef DOT_PRINTF

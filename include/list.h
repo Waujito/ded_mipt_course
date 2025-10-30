@@ -2,6 +2,7 @@
 #define LIST_H
 
 #include <stddef.h>
+#include <sys/types.h>
 
 #include "data_structure.h"
 
@@ -10,21 +11,18 @@ extern "C" {
 #endif
 
 typedef int list_dtype;
-typedef size_t list_ptr_t;
+typedef ssize_t list_ptr_t;
 
 typedef struct list_node {
 	list_dtype value;
 
 	list_ptr_t next;
-
-	union {
-		list_ptr_t prev;
-		list_ptr_t list_free_head;
-	};
+	list_ptr_t prev;
 } list_node_t;
 
 struct list {
 	list_node_t *array;
+	list_ptr_t list_free_head;
 	size_t capacity;
 	size_t used_capacity;
 };

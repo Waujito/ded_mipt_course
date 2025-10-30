@@ -61,24 +61,31 @@ TEST(List, ListOperates) {
 	for (size_t i = 0; i < 4; i++) {
 		ASSERT_DSERROR(list_insert(&list, 4, 123, &nptr), DS_OK);
 	}
-	for (size_t i = 1; i < 8; i+=2) {
+	for (list_ptr_t i = 1; i < 8; i+=2) {
 		ASSERT_DSERROR(list_drop(&list, i), DS_OK);
 	}
 	for (size_t i = 0; i < 4; i++) {
 		ASSERT_DSERROR(list_insert(&list, 4, 123, &nptr), DS_OK);
 	}
-	for (size_t i = 3; i < 8; i+=2) {
+	for (list_ptr_t i = 3; i < 8; i+=2) {
 		ASSERT_DSERROR(list_drop(&list, i), DS_OK);
 	}
-	for (size_t i = 0; i < 8; i++) {
+	for (list_ptr_t i = 0; i < 8; i++) {
 		ASSERT_DSERROR(list_insert(&list, i, 123, &nptr), DS_OK);
 	}
-	for (size_t i = 2; i < 16; i+=3) {
+	for (list_ptr_t i = 2; i < 16; i+=3) {
 		ASSERT_DSERROR(list_drop(&list, i), DS_OK);
 	}
 	dump_params.drawing_filename = "list_graph4.png";
 	list_dump(&list, dump_params);
 	fflush(dump_file);
+
+	list.array[3].next = 1999;
+	list.array[4].next = 8939;
+	dump_params.drawing_filename = "list_graph5.png";
+	list_dump(&list, dump_params);
+	fflush(dump_file);
+
 
 
 	fclose(dump_file);

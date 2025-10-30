@@ -2,7 +2,7 @@
 #include "test_machine.h"
 #include "list.h"
 
-#define ASSERT_DSERROR(pred, target) ASSERT_EQ((int)(pred), (int)(target))
+#define ASSERT_DSERROR(pred, target) ASSERT_EQ((int)(DSError_t)(pred), (int)(DSError_t)(target))
 
 TEST(List, ConstructorDestructor) {
 	struct list list = {0};
@@ -99,7 +99,7 @@ TEST(List, ComplexOperations) {
 		ASSERT_DSERROR(list_insert(&list, 0, (int)i * 10, &nptr), DS_OK);
 	}
 	
-	for (size_t i = 1; i <= 10; i += 2) {
+	for (list_ptr_t i = 1; i <= 10; i += 2) {
 		ASSERT_DSERROR(list_drop(&list, i), DS_OK);
 	}
 	
@@ -118,11 +118,11 @@ TEST(List, SequentialDropInsert) {
 	
 	ASSERT_DSERROR(list_ctor(&list), DS_OK);
 	
-	for (size_t i = 0; i < 5; i++) {
+	for (list_ptr_t i = 0; i < 5; i++) {
 		ASSERT_DSERROR(list_insert(&list, 0, (int)i, &nptr), DS_OK);
 	}
 	
-	for (size_t i = 1; i <= 5; i++) {
+	for (list_ptr_t i = 1; i <= 5; i++) {
 		ASSERT_DSERROR(list_drop(&list, i), DS_OK);
 		ASSERT_DSERROR(list_insert(&list, 0, (int)i * 10, &nptr), DS_OK);
 	}

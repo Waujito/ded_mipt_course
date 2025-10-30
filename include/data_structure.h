@@ -72,6 +72,7 @@ enum DSError {
 	DS_ARRAY_HASH_CORRUPT		= 1 << 8,
 	DS_LIST_CONNECTIVITY_CORRUPT	= 1 << 9,
 	DS_LIST_CONN_BACKWARD_CORRUPT	= 1 << 10,
+	DS_INFINITY_CYCLE		= 1 << 11,
 }; 
 
 typedef unsigned int DSError_t;
