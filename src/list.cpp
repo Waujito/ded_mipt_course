@@ -417,7 +417,7 @@ DSError_t list_dump(struct list *list,
 	DUMP_LOG("<pre>\n");
 
 	DUMP_LOG("<h3>List dump:</h3>\n");
-	DUMP_LOG("\tLinear len: %zu\n", list->used_capacity);
+	DUMP_LOG("\tUsed capacity: %zu\n", list->used_capacity);
 	DUMP_LOG("\tCapacity: %zu\n", list->capacity);
 	DUMP_LOG("\tArray: %p\n", list->array);
 

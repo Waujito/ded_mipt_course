@@ -1,6 +1,9 @@
 #include <stdio.h>
+#include <time.h>
+
 #include "test_machine.h"
 #include "list.h"
+#include "mlist.h"
 
 #define ASSERT_DSERROR(pred, target) ASSERT_EQ((int)(pred), (int)(target))
 
@@ -80,12 +83,74 @@ TEST(List, ListOperates) {
 	list_dump(&list, dump_params);
 	fflush(dump_file);
 
+
+	list_ptr_t prev_ptrs[5] = {0};
+
+	prev_ptrs[0] = list.array[10].prev;
+	list.array[10].prev = 9;
 	dump_params.drawing_filename = "list_graph5.png";
+	list_dump(&list, dump_params);
+	fflush(dump_file);
+
+	prev_ptrs[1] = list.array[3].next;
+	list.array[3].next = 1999;
+	prev_ptrs[2] = list.array[4].next;
+	list.array[4].next = 8939;
+	prev_ptrs[3] = list.array[6].prev;
+	list.array[6].prev = 9199;
+	prev_ptrs[4] = list.array[8].next;
+	list.array[8].next = 10;
+	dump_params.drawing_filename = "list_graph6.png";
+	list_dump(&list, dump_params);
+	fflush(dump_file);
+
+	list.array[10].prev = prev_ptrs[0];
+	list.array[3].next = prev_ptrs[1];
+	list.array[4].next = prev_ptrs[2];
+	list.array[6].prev = prev_ptrs[3];
+	list.array[8].next = prev_ptrs[4];
+	dump_params.drawing_filename = "list_graph7.png";
+	list_dump(&list, dump_params);
+	fflush(dump_file);
+
+
+	dump_params.drawing_filename = "list_graph8.png";
 	list_linearize(&list);
 	list_dump(&list, dump_params);
 	fflush(dump_file);
 
-	fclose(dump_file);
+	list_dtor(&list);
+}
+
+TEST(List, ListProfileInsert) {
+	struct list list = {0};
+	ASSERT_DSERROR(list_ctor(&list), DS_OK);
+
+	list_ptr_t nptr = 0;
+	for (size_t i = 0; i < 1000000; i++) {
+		ASSERT_DSERROR(list_insert(&list, nptr, (int)i, &nptr), DS_OK);
+	}
 
 	list_dtor(&list);
+}
+
+TEST(MList, MListProfileInsert) {
+	struct mlist_node head = {0};
+
+	struct mlist_node *next = &head;
+	for (size_t i = 0; i < 1000000; i++) {
+		struct mlist_node *new_node = mlist_insert(next, (int)i);
+		if (new_node == NULL) {
+			ASSERT_EQ(0, 1);
+		}
+
+		next = new_node;
+	}
+
+	next = head.next;
+	while (next != NULL) {
+		struct mlist_node *cur = next;
+		next = cur->next;
+		free(cur);
+	}
 }
