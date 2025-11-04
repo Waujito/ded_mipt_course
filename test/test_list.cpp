@@ -27,10 +27,10 @@ TEST(List, ListOperates) {
 	list_dump(&list, dump_params);
 	fflush(dump_file);
 
-	ASSERT_DSERROR(list_insert(&list, 1, 321, &nptr), DS_OK);
-	ASSERT_DSERROR(list_insert(&list, 2, 321, &nptr), DS_OK);
-	ASSERT_DSERROR(list_insert(&list, 3, 321, &nptr), DS_OK);
-	ASSERT_DSERROR(list_insert(&list, 4, 321, &nptr), DS_OK);
+	ASSERT_DSERROR(list_insert(&list, 1, 1, &nptr), DS_OK);
+	ASSERT_DSERROR(list_insert(&list, 2, 2, &nptr), DS_OK);
+	ASSERT_DSERROR(list_insert(&list, 3, 3, &nptr), DS_OK);
+	ASSERT_DSERROR(list_insert(&list, 4, 4, &nptr), DS_OK);
 
 	dump_params.drawing_filename = "list_graph1.png";
 	list_dump(&list, dump_params);
@@ -48,7 +48,7 @@ TEST(List, ListOperates) {
 	list_dump(&list, dump_params);
 	fflush(dump_file);
 
-	ASSERT_DSERROR(list_insert(&list, 0, 123, &nptr), DS_OK);
+	ASSERT_DSERROR(list_insert(&list, 0, 5, &nptr), DS_OK);
 	ASSERT_EQ((int)(nptr), 4);
 
 	dump_params.drawing_filename = "list_graph3.png";
@@ -56,39 +56,34 @@ TEST(List, ListOperates) {
 	fflush(dump_file);
 
 	for (size_t i = 0; i < 4; i++) {
-		ASSERT_DSERROR(list_insert(&list, 0, 123, &nptr), DS_OK);
+		ASSERT_DSERROR(list_insert(&list, 0, 6 + (int)i, &nptr), DS_OK);
 	}
 	for (size_t i = 0; i < 4; i++) {
-		ASSERT_DSERROR(list_insert(&list, 4, 123, &nptr), DS_OK);
+		ASSERT_DSERROR(list_insert(&list, 4, 11 + (int)i, &nptr), DS_OK);
 	}
 	for (list_ptr_t i = 1; i < 8; i+=2) {
 		ASSERT_DSERROR(list_drop(&list, i), DS_OK);
 	}
 	for (size_t i = 0; i < 4; i++) {
-		ASSERT_DSERROR(list_insert(&list, 4, 123, &nptr), DS_OK);
+		ASSERT_DSERROR(list_insert(&list, 4, 16 + (int)i, &nptr), DS_OK);
 	}
 	for (list_ptr_t i = 3; i < 8; i+=2) {
 		ASSERT_DSERROR(list_drop(&list, i), DS_OK);
 	}
 	for (list_ptr_t i = 0; i < 8; i++) {
-		ASSERT_DSERROR(list_insert(&list, i, 123, &nptr), DS_OK);
+		ASSERT_DSERROR(list_insert(&list, i, 30 + (int)i, &nptr), DS_OK);
 	}
 	for (list_ptr_t i = 2; i < 16; i+=3) {
 		ASSERT_DSERROR(list_drop(&list, i), DS_OK);
 	}
-	list.array[10].prev = 9;
 	dump_params.drawing_filename = "list_graph4.png";
 	list_dump(&list, dump_params);
 	fflush(dump_file);
 
-	list.array[3].next = 1999;
-	list.array[4].next = 8939;
-	list.array[6].prev = 9199;
-	list.array[8].next = 10;
 	dump_params.drawing_filename = "list_graph5.png";
+	list_linearize(&list);
 	list_dump(&list, dump_params);
 	fflush(dump_file);
-
 
 	fclose(dump_file);
 

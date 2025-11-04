@@ -50,6 +50,8 @@ DSError_t list_dump(struct list *list, struct list_dump_params parms);
 
 DSError_t list_graph_dump_dot(struct list *list, FILE *dot_file);
 
+DSError_t list_linearize(struct list *list);
+
 #ifdef __cplusplus
 }
 #endif

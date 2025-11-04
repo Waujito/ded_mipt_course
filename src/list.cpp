@@ -157,6 +157,85 @@ DSError_t list_drop(struct list *list, list_ptr_t node_ptr) {
 	return DS_OK;
 }
 
+#ifdef _DEBUG
+// #define DEBUG_LINEARIZATION
+#endif
+
+DSError_t list_linearize(struct list *list) {
+	DSError_t ret = list_verify(list);
+	if (ret) {
+		return ret;
+	}
+
+	if (!list->array) {
+		return ret;
+	}
+
+#ifdef DEBUG_LINEARIZATION
+	FILE *debug_file = fopen("linearization_logs.htm", "w");
+	struct list_dump_params dump_params = {
+		.out_stream = debug_file,
+	};
+#endif
+
+	list_ptr_t icap = 1;
+	for (list_ptr_t inode = list->array->next; inode != LIST_ROOT_EL;
+			inode = list->array[icap++].next) {
+
+#ifdef DEBUG_LINEARIZATION
+		char drawing_buf[64];
+		snprintf(drawing_buf, 64, "logs/list_graph%zd.png", icap);
+		dump_params.drawing_filename = drawing_buf;
+		list_dump(list, dump_params);
+#endif
+
+		list_node_t *icap_node	= &list->array[icap];
+		list_node_t *nx_node	= &list->array[inode];
+
+		if (icap == inode) {
+			continue;
+		}
+
+		if (icap_node->prev == LIST_PREV_FREE) {
+			nx_node->prev = icap - 1;
+
+			list->array[nx_node->prev].next = icap;
+			list->array[nx_node->next].prev = icap;
+
+			list->array[icap] = *nx_node;
+
+			list->array[inode].prev = LIST_PREV_FREE;
+			list->array[inode].next = inode;
+
+			continue;
+		}
+
+		nx_node->prev = icap - 1;
+		list->array[nx_node->prev].next = icap;
+		list->array[nx_node->next].prev = icap;
+
+		list->array[icap_node->prev].next = inode;
+		list->array[icap_node->next].prev = inode;
+
+		list_node_t icap_cpy	= *icap_node;
+		list_node_t nx_cpy	= *nx_node;
+		list->array[inode]	= icap_cpy;
+		list->array[icap]	= nx_cpy;
+	}
+
+	list->used_capacity = (size_t)icap;
+	list->list_free_head = LIST_ROOT_EL;
+
+#ifdef DEBUG_LINEARIZATION
+	dump_params.drawing_filename = "logs/list_graphd.png";
+	list_dump(list, dump_params);
+	fclose(debug_file);
+#endif
+
+
+	return ret;
+}
+
 static DSError_t is_node_corrupt(struct list *list, list_ptr_t idx) {
 	assert (list);
 
