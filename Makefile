@@ -30,14 +30,14 @@ export CXX CFLAGS
 
 BUILD_DIR := build
 
-LIBSRC := src/strfuncs.cpp src/strsplit.cpp src/strstr.cpp src/sort.cpp src/pvector.cpp src/hash.cpp src/gdb_assertions.cpp src/data_structure.cpp src/argparse.cpp src/test_machine.cpp src/ctio.cpp src/list.cpp
+LIBSRC := src/strfuncs.cpp src/strsplit.cpp src/strstr.cpp src/sort.cpp src/pvector.cpp src/hash.cpp src/gdb_assertions.cpp src/data_structure.cpp src/argparse.cpp src/test_machine.cpp src/ctio.cpp src/list.cpp src/tree.cpp
 LIBOBJ := $(LIBSRC:%.cpp=$(BUILD_DIR)/%.o)
 STATIC_LIB := $(BUILD_DIR)/tasks_lib.a
 
 TESTLIBSRC := test/test_runner.cpp
 TESTLIBOBJ := $(TESTLIBSRC:%.cpp=$(BUILD_DIR)/%.o)
 
-TESTSRC := test/test_strstr.cpp test/test_strfuncs.cpp test/test_cppvector.cpp test/test_crc32.cpp test/test_pvector.cpp test/test_list.cpp test/test_list_unit.cpp
+TESTSRC := test/test_strstr.cpp test/test_strfuncs.cpp test/test_cppvector.cpp test/test_crc32.cpp test/test_pvector.cpp test/test_list.cpp test/test_list_unit.cpp test/test_tree.cpp
 TESTOBJ := $(TESTSRC:%.cpp=$(BUILD_DIR)/%.o)
 TEST_LIB_APP := $(BUILD_DIR)/test_tasks
 

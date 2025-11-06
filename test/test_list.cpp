@@ -120,6 +120,8 @@ TEST(List, ListOperates) {
 	fflush(dump_file);
 
 	list_dtor(&list);
+
+	fclose(dump_file);
 }
 
 TEST(List, ListProfileInsert) {
