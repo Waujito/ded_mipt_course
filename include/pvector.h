@@ -25,6 +25,12 @@ extern "C" {
 #endif
 
 #ifdef PVECTOR_DEBUG
+#undef PVECTOR_DEBUG
+#endif
+
+
+
+#ifdef PVECTOR_DEBUG
 	#define PVECTOR_ONDEBUG(...) __VA_ARGS__
 #else /* PVECTOR_DEBUG */
 	#define PVECTOR_ONDEBUG(...)
