@@ -357,7 +357,9 @@ DSError_t pvector_clone(struct pvector *npv, const struct pvector *pv) {
 		pvector_set_canaries(npv);
 	}
 
-	memcpy(npv->arr, pv->arr, pv->len * pv->el_size);
+	if (pv->len != 0) {
+		memcpy(npv->arr, pv->arr, pv->len * pv->el_size);
+	}
 
 	pvector_rehash(npv);
 	return DS_OK;

@@ -1,3 +1,4 @@
+/*
 #define _GNU_SOURCE
 #include <stdlib.h>
 #include <assert.h>
@@ -90,6 +91,7 @@ static DSError_t dump_elements(struct tree *tree,
 	}
 	DUMP_LOG("\t}\n");
 	*/
+/*
 
 #undef DUMP_LOG
 
@@ -275,3 +277,4 @@ DSError_t tree_graph_dump_dot(struct tree *tree, FILE *dot_file) {
     
 	return DS_OK;
 }
+*/

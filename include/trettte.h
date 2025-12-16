@@ -1,3 +1,4 @@
+/*
 #ifndef TREE_H
 #define TREE_H
 
@@ -47,3 +48,4 @@ DSError_t tree_graph_dump_dot(struct tree *tree, FILE *dot_file);
 #endif
 
 #endif /* TREE_H */
+*/
