@@ -17,6 +17,8 @@ Start		proc
 
 		mov bp, sp
 
+		call ParseArgs
+
 		; ES to vram
 		mov ax, 0b800h
 		mov es, ax
@@ -49,27 +51,19 @@ Start		proc
 		sub bx, 4
 		sub cx, 4
 
- 		mov dl, cs:[80h]
+
+ 		mov dl, byte ptr cs:[offset ARGS_STRING_LEN]
+		mov si, word ptr cs:[offset ARGS_STRING_PTR]
+
 		push cs
 		pop ds
-		mov si, 81h
 
 		mov di, [bp - 2]
 		add di, 2 * 2 * W_WIDTH + 2 * 2
 
-		test dx, dx
-		jz @@no_write_text
-
-		cmp byte ptr ds:[81h], 20h
-		jne @@no_esc_space
-
-		dec dx
-		inc si
-@@no_esc_space:
-
 		mov ah, TEXT_COLOR
+
 		call WriteCenteredText
-@@no_write_text:
 
 		; mov di, [bp - 2]
 		; mov bx, [bp - 4]
@@ -83,6 +77,35 @@ Start		proc
 
 		mov ax, 4c00h
 		int 21h
+endp
+
+
+
+
+;------------------------------------------------------
+; Parses args
+;
+; Destroys: DX, SI
+;------------------------------------------------------
+ParseArgs proc
+		mov dl, cs:[80h]
+		mov si, 81h
+
+		test dx, dx
+		jz @@exit_func
+
+		cmp byte ptr cs:[si], 20h
+		jne @@no_esc_space
+
+		dec dx
+		inc si
+
+@@no_esc_space:
+@@exit_func:
+		mov byte ptr cs:[offset ARGS_STRING_LEN], dl
+		mov word ptr cs:[offset ARGS_STRING_PTR], si
+
+		ret
 endp
 
 ;------------------------------------------------------
@@ -242,8 +265,10 @@ WriteCenteredText	proc
 		push bp
 		mov bp, sp
 
-		push dx
+		test dx, dx
+		jz @@exit
 
+		push dx
 
 		; if number of symbols is more than ncols,
 		; write capped
@@ -465,5 +490,6 @@ FillVRAMSpace proc
 endp
 
 DEFAULT_BORDER: db 0c9h, 0cdh, 0bbh, 0bah, 0bch, 0cdh, 0c8h, 0bah
-
+ARGS_STRING_LEN: db 0h
+ARGS_STRING_PTR: dw 81h
 end Start
