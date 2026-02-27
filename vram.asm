@@ -4,14 +4,19 @@ locals @@
 
 W_HEIGHT	equ 25
 W_WIDTH		equ 80
-FILLER_SYM	equ 0504h ; Pink heart, used for debugging. Replace with 0000 to clear the area
+; FILLER_SYM	equ 0504h ; Pink heart, used for debugging. Replace with 0000 to clear the area
+FILLER_SYM	equ 0700h ; Blank symbol with default white font on black border
 
 BORDER_COLOR equ 0bh
+TEXT_COLOR equ 02h
 
 .code
 org 100h
 
 Start		proc
+
+		mov bp, sp
+
 		; ES to vram
 		mov ax, 0b800h
 		mov es, ax
@@ -19,60 +24,62 @@ Start		proc
 		mov di, 8
 		call ShiftText
 
-		mov si, ax
-		add si, 10
-		mov bx, 50
+
+		mov bx, 32
 		mov cx, 8
+
+		mov si, ax
+		mov ax, W_WIDTH
+		sub ax, bx
+		shr ax, 1
+		shl ax, 1
+		add si, ax
+
+		push si			; starting of border [bp - 2]
+		push bx			; ncols	 [bp - 4]
+		push cx			; nrows	 [bp - 6]
+
+		mov ah, BORDER_COLOR
+
 		call FillBorder
 
-; 		; Starting of row-wised width
-; 		add di, 2 * 2 * W_WIDTH + 2 * 2
-; 		mov bx, si
-; 		sub bx, 4
-; 		shl bx, 1
-; 		add bx, di
-; 		mov si, bx
-; 
-; 		mov dl, ds:[80h]
-; 
-; 		test dl, dl
-; 		jz .pw_loop_end
-; 
-; 		dec dl
-; 		
-; 		push di
-; 		push di
-; 		xor cx, cx
-; .pw_loop_start:
-; 		cmp cx, dx
-; 		jge .pw_loop_end
-; 
-; 		mov bx, cx
-; 		mov al, ds:[bx + 82h]
-; 		mov ah, 0ceh
-; 
-; 		mov es:[di], ax
-; 		add di, 2
-; 
-; 		cmp di, si
-; 		jle .pw_loop_no_act
-; 
-; 		pop di
-; 		add di, 2 * W_WIDTH
-; 		push di
-; 		add si, 2 * W_WIDTH
-; 	
-; .pw_loop_no_act:
-; 
-; 
-; 		inc cx
-; 		jmp .pw_loop_start
-; .pw_loop_end:
-; 
-; 		pop di
-; 		pop di
+		mov bx, [bp - 4]
+		mov cx, [bp - 6]
 
+		sub bx, 4
+		sub cx, 4
 
+ 		mov dl, cs:[80h]
+		push cs
+		pop ds
+		mov si, 81h
+
+		mov di, [bp - 2]
+		add di, 2 * 2 * W_WIDTH + 2 * 2
+
+		test dx, dx
+		jz @@no_write_text
+
+		cmp byte ptr ds:[81h], 20h
+		jne @@no_esc_space
+
+		dec dx
+		inc si
+@@no_esc_space:
+
+		mov ah, TEXT_COLOR
+		call WriteCenteredText
+@@no_write_text:
+
+		; mov di, [bp - 2]
+		; mov bx, [bp - 4]
+		; mov cx, [bp - 6]
+
+		; sub bx, 2
+		; sub cx, 2
+		; add di, 2 * W_WIDTH + 2
+
+		; call CleanRectangle
 
 		mov ax, 4c00h
 		int 21h
@@ -80,27 +87,28 @@ endp
 
 ;------------------------------------------------------
 ; Fills the Border. Uses SI as index of start,
-; BX as number of rows, CX as number of cols.
+; BX as number of cols, CX as number of rows.
 ; Automatically makes gaps and new lines.
+;
+; Border Color is set by AH
 ; 
-; Entry: SI, BX, CX
+; Entry: SI, BX, CX, AH
 ; Expects: ES = 0b800h, Window of W_HEIGHT x W_WIDTH dims
-; Destroys: AX, BX, CX, SI, DX
+; Destroys: AL, BX, CX, SI, DX
 ;------------------------------------------------------
 FillBorder	proc	
-	push cx			; ncols		[bp - 2]
-	push bx			; nrows		[bp - 4]
+	push cx			; nrows
+	push bx			; ncols
 
-	mov ah, BORDER_COLOR
 
 ; fill top-left angle
-	mov al, 0c9h
+	mov al, byte ptr cs:[offset DEFAULT_BORDER + 0]
 	mov es:[si], ax
 
 	add si, 2d
 
 ; fill top row
-	mov al, 0cdh
+	mov al, byte ptr cs:[offset DEFAULT_BORDER + 1]
 
 	sub bx, 2
 	shl bx, 1
@@ -113,11 +121,11 @@ FillBorder	proc
 	jl @@fill_top_row_loop
 
 ; fill top-right angle
-	mov al, 0bbh
+	mov al, byte ptr cs:[offset DEFAULT_BORDER + 2]
 	mov es:[si], ax
 
 ; fill right column
-	mov al, 0bah
+	mov al, byte ptr cs:[offset DEFAULT_BORDER + 3]
 
 	sub cx, 2
 
@@ -138,15 +146,16 @@ FillBorder	proc
 	jl @@fill_right_col_loop
 
 ; fill bottom-right angle
-	mov al, 0bch
+	mov al, byte ptr cs:[offset DEFAULT_BORDER + 4]
 	add si, 2 * W_WIDTH
 	mov es:[si], ax
 
 ; fill bottom row
-	mov al, 0cdh
+	mov al, byte ptr cs:[offset DEFAULT_BORDER + 5]
 	sub si, 2
 
 	pop bx
+
 	sub bx, 2
 	shl bx, 1
 
@@ -162,11 +171,11 @@ FillBorder	proc
 	jg @@fill_bottom_row_loop
 	
 ; fill bottom-left angle	
- 	mov al, 0c8h	
+ 	mov al, byte ptr cs:[offset DEFAULT_BORDER + 6]
 	mov es:[si], ax
 
 ; fill left column
-	mov al, 0bah
+	mov al, byte ptr cs:[offset DEFAULT_BORDER + 7]
 
 	pop cx
 
@@ -191,6 +200,115 @@ FillBorder	proc
 
 	ret
 endp
+
+;------------------------------------------------------
+; Fill the area in rectangle with FILLER_SYM
+; Starting from es:[di], bx is ncols, cx is nrows
+;------------------------------------------------------
+CleanRectangle	proc
+@@fill_rowwise:	
+	mov dx, cx
+	mov cx, bx
+	mov si, di
+
+@@fill_colwise:
+	mov es:[di], FILLER_SYM
+	add di, 2
+	loop @@fill_colwise
+
+	mov di, si
+	add di, 2 * W_WIDTH
+
+	mov cx, dx
+	loop @@fill_rowwise
+
+	ret
+endp
+
+;------------------------------------------------------
+; Write DX characters from ds:[SI]
+; To the box with BX cols, rows are unlimited (may overflow)
+; Starting from es:[DI]
+; 
+; Assumes window width is 80
+;
+; Text color is set by AH
+; 
+; Entry: AH, SI, BX, DI, DS
+; Expects: ES = 0b800h
+; Destroys: AL, SI, DX, DI, CX
+;------------------------------------------------------
+WriteCenteredText	proc
+		push bp
+		mov bp, sp
+
+		push dx
+
+
+		; if number of symbols is more than ncols,
+		; write capped
+@@write_capped:
+		cmp dx, bx
+		jl @@write_remainded
+		
+		push dx
+		push di
+
+		mov dx, bx
+		add dx, si
+
+@@wcap_loop:
+		mov al, ds:[si]
+		mov es:[di], ax
+
+		inc si
+		add di, 2
+		cmp si, dx
+		jl @@wcap_loop
+
+
+		pop di
+		add di, 2 * W_WIDTH
+
+		pop dx
+		sub dx, bx
+		jmp @@write_capped
+
+
+		add dx, si
+
+
+@@write_remainded:
+		test dx, dx
+		jz @@exit
+
+		mov cx, bx
+		sub cx, dx
+		
+		shr cx, 1
+		; multiply by 2 because of vram symbol size
+		shl cx, 1
+
+		add di, cx
+		add dx, si
+
+@@wremaind_loop:
+		mov al, ds:[si]
+		mov es:[di], ax
+
+		inc si
+		add di, 2
+		cmp si, dx
+		jl @@wremaind_loop
+
+@@exit:
+
+		mov sp, bp
+		pop bp
+		ret
+endp
+
+
 
 ;------------------------------------------------------
 ; Shifts previous text in video buffer to n rows up so the new data may be printed out
@@ -286,7 +404,7 @@ ShiftText	proc
  		xor dl, dl
  		int 10h
 
-		jmp @@exit_func
+		jmp @@exit
 
 @@shift_cursor_down:
  		mov ah, 02h
@@ -295,7 +413,7 @@ ShiftText	proc
 		mov dh, (W_HEIGHT - 1)
  		int 10h
 
-@@exit_func:	
+@@exit:
 		mov ax, [bp - 8]
 
 		; epilogue
@@ -345,5 +463,7 @@ FillVRAMSpace proc
 
 		ret
 endp
+
+DEFAULT_BORDER: db 0c9h, 0cdh, 0bbh, 0bah, 0bch, 0cdh, 0c8h, 0bah
 
 end Start
