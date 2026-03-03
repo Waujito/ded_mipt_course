@@ -4,85 +4,318 @@ locals @@
 
 W_HEIGHT	equ 25
 W_WIDTH		equ 80
-; FILLER_SYM	equ 0504h ; Pink heart, used for debugging. Replace with 0000 to clear the area
-FILLER_SYM	equ 0700h ; Blank symbol with default white font on black border
 
-BORDER_COLOR	equ 0bh
-TEXT_COLOR	equ 02h
+; FILLER_SYM	equ 0504h ; Pink heart, used for debugging.
+FILLER_SYM	equ 1700h ; Blank symbol with default white font on black border
+
+BORDER_COLOR	equ 1bh
+TEXT_COLOR	equ 12h
 
 .code
 org 100h
 
-Start		proc
+Start:
+	call Main
+	ret
 
-		mov bp, sp
+;------------------------
+; INT 9 handler
+;------------------------
+CaptureKeyboard		proc
+	push ax
 
-		mov di, 9f8ah
-		call PrintHexNumberNL
+	in al, 60h
+	mov ah, al
+	and ah, 7fh
 
-		call ParseArgs
+	cmp ah, 3ch
+	je @@handle_key
 
-		; ES to vram
-		mov ax, 0b800h
-		mov es, ax
+	pop ax
+	jmp DOS_INT9_ORIG_FJMP
 
-		mov di, 8
-		call ShiftText
+@@handle_key:
+	cmp al, 0bch
+	jne @@exit_handler
 
+	mov al, byte ptr cs:[offset DO_SHOW_POPUP]
+	xor al, 01h
+	mov byte ptr cs:[offset DO_SHOW_POPUP], al
+	
+	pop ax
+	call ProgTimerHandler
+	push ax
 
-		mov bx, 32
-		mov cx, 8
+@@exit_handler:
+	; blink to keyboard controller
+	in al, 61h
+	mov ah, al
+	or al, 80h
+	out 61h, al
+	xchg ah, al
+	out 61h, al
 
-		mov si, ax
-		mov ax, W_WIDTH
-		sub ax, bx
-		shr ax, 1
-		shl ax, 1
-		add si, ax
+	; signal interrupt controller
+	mov al, 20h
+	out 20h, al
 
-		push si			; starting of border [bp - 2]
-		push bx			; ncols	 [bp - 4]
-		push cx			; nrows	 [bp - 6]
+	pop ax
 
-		mov ah, BORDER_COLOR
-
-		call FillBorder
-
-		mov bx, [bp - 4]
-		mov cx, [bp - 6]
-
-		sub bx, 4
-		sub cx, 4
-
-
- 		mov dl, byte ptr cs:[offset ARGS_STRING_LEN]
-		mov si, word ptr cs:[offset ARGS_STRING_PTR]
-
-		push cs
-		pop ds
-
-		mov di, [bp - 2]
-		add di, 2 * 2 * W_WIDTH + 2 * 2
-
-		mov ah, TEXT_COLOR
-
-		call WriteCenteredText
-
-		; mov di, [bp - 2]
-		; mov bx, [bp - 4]
-		; mov cx, [bp - 6]
-
-		; sub bx, 2
-		; sub cx, 2
-		; add di, 2 * W_WIDTH + 2
-
-		; call CleanRectangle
-
-		mov ax, 4c00h
-		int 21h
+	iret
 endp
 
+; Far jump instruction encoded here
+DOS_INT9_ORIG_FJMP:	db 0eah
+DOS_INT9_HANDLER_PTR:	dw 0000h
+DOS_INT9_HANDLER_SEG:	dw 0000h
 
+;------------------------
+; INT 8 handler
+;------------------------
+TimerHandler		proc
+	push ax
+
+	mov al, byte ptr cs:[offset DO_SHOW_POPUP]
+	test al, al
+	jz @@exit
+
+	pop ax
+	call ProgTimerHandler	
+	push ax
+
+@@exit:
+	pop ax
+	jmp DOS_INT8_ORIG_FJMP
+
+	iret
+endp
+
+; Far jump instruction encoded here
+DOS_INT8_ORIG_FJMP:	db 0eah
+DOS_INT8_HANDLER_PTR:	dw 0000h
+DOS_INT8_HANDLER_SEG:	dw 0000h
+
+DO_SHOW_POPUP:		db 0000h
+
+;-----------------------
+; Registers 9th interrupt in interrupt table
+; Saves previous interrupt in memory
+;-----------------------
+Main	proc
+
+	push 0000h 
+	pop es
+
+	; indexing in interrupt table
+	mov di, 4 * 09h
+
+	mov ax, word ptr es:[di]
+	mov word ptr cs:[offset DOS_INT9_HANDLER_PTR], ax
+	mov ax, word ptr es:[di + 2]
+	mov word ptr cs:[offset DOS_INT9_HANDLER_SEG], ax
+
+	cli
+	mov es:[di], offset CaptureKeyboard
+	mov ax, cs
+	mov es:[di + 2], ax
+	sti
+
+	; indexing in interrupt table
+	mov di, 4 * 08h
+
+	mov ax, word ptr es:[di]
+	mov word ptr cs:[offset DOS_INT8_HANDLER_PTR], ax
+	mov ax, word ptr es:[di + 2]
+	mov word ptr cs:[offset DOS_INT8_HANDLER_SEG], ax
+
+	cli
+	mov es:[di], offset TimerHandler
+	mov ax, cs
+	mov es:[di + 2], ax
+	sti
+
+@@exit:
+	mov ax, 3100h
+	mov dx, offset EOPPP
+	shr dx, 4
+	inc dx
+	int 21h
+
+endp
+
+;---------------------------------
+; Implements a custom logic for key handling.
+; Works only for F2.
+;
+; Entry: AL - a keycode
+; Destroys: AX
+;---------------------------------
+ProgTimerHandler proc
+	call SaveProgramState
+	mov bp, sp
+
+	push cs
+	pop ds
+
+	call DrawAllRegisters
+
+	mov sp, bp
+	call LoadProgramState	
+
+	ret
+endp
+
+DrawAllRegisters proc
+	push 0b800h
+	pop es
+
+	mov bx, 20
+	mov cx, 9
+	mov ah, BORDER_COLOR
+	mov si, 2 * W_WIDTH
+
+	push bx
+	push cx
+	push si
+
+	call FillBorder
+
+	pop di
+	pop cx
+	pop bx
+
+	add di, 2 * W_WIDTH + 2
+	sub cx, 2
+	sub bx, 2
+
+	push di
+
+	call CleanRectangle
+
+	pop di
+	add di, 2 * W_WIDTH + 2
+	push di
+
+	mov ah, TEXT_COLOR
+
+
+	mov si, offset REGISTER_AX_NAME
+	mov bx, [bp + 16]
+	call DisplayRegister
+
+	mov al, " "
+	mov es:[di], ax
+	add di, 2
+
+	mov si, offset REGISTER_BX_NAME
+	mov bx, [bp + 12]
+	call DisplayRegister
+
+	pop di
+	add di, 2 * W_WIDTH
+	push di
+
+	mov si, offset REGISTER_CX_NAME
+	mov bx, [bp + 10]
+	call DisplayRegister
+
+	mov al, " "
+	mov es:[di], ax
+	add di, 2
+
+	mov si, offset REGISTER_DX_NAME
+	mov bx, [bp + 8]
+	call DisplayRegister
+
+	pop di
+	add di, 2 * W_WIDTH
+	push di
+
+	mov si, offset REGISTER_SI_NAME
+	mov bx, [bp + 6]
+	call DisplayRegister
+
+	mov al, " "
+	mov es:[di], ax
+	add di, 2
+
+	mov si, offset REGISTER_DI_NAME
+	mov bx, [bp + 4]
+	call DisplayRegister
+
+	pop di
+	add di, 2 * W_WIDTH
+	push di
+
+	mov si, offset REGISTER_ES_NAME
+	mov bx, [bp + 2]
+	call DisplayRegister
+
+	mov al, " "
+	mov es:[di], ax
+	add di, 2
+
+	mov si, offset REGISTER_DS_NAME
+	mov bx, [bp + 0]
+	call DisplayRegister
+
+	pop di
+	add di, 2 * W_WIDTH
+	push di
+
+	mov si, offset REGISTER_FLAGS_NAME
+	mov bx, [bp + 14]
+	call DisplayRegister
+
+	pop di
+	add di, 2 * W_WIDTH
+	push di
+	pop di
+
+	ret
+endp
+
+REGISTER_AX_NAME: db "ax",0
+REGISTER_BX_NAME: db "bx",0
+REGISTER_CX_NAME: db "cx",0
+REGISTER_DX_NAME: db "dx",0
+REGISTER_SI_NAME: db "si",0
+REGISTER_DI_NAME: db "di",0
+REGISTER_BP_NAME: db "bp",0
+REGISTER_ES_NAME: db "es",0
+REGISTER_DS_NAME: db "ds",0
+REGISTER_FLAGS_NAME: db "flags",0
+
+;------------------------------------------------------
+; Displays register named in DS:[SI] (in ASCII, escaped by \0)
+; with value in BX to ES:DI in VRAM ASCII
+;
+; Entry: AH - color, SI, BX, DI, ES, DS
+; Destroys:	DI - shifted at the end of written register
+;		SI - shifted to \0
+;		BX, CX, AL
+;------------------------------------------------------
+DisplayRegister proc
+
+@@print_reg_name:
+	mov al, ds:[si]
+	test al, al
+	jz @@print_eq_sign
+
+	mov es:[di], ax
+	add di, 2
+	inc si
+	jmp @@print_reg_name
+
+@@print_eq_sign:
+	mov al, "="
+	mov es:[di], ax
+	add di, 2
+
+	call DisplayHexWord
+
+	ret
+endp
 
 
 ;------------------------------------------------------
@@ -102,9 +335,6 @@ ParseArgs proc
 
 		push si
 		push dx
-
-
-
 @@get_string:
 
 		cmp byte ptr cs:[si], 20h
@@ -503,47 +733,24 @@ FillVRAMSpace proc
 endp
 
 ;------------------------------------------------------
-; Prints 2-byte number from di in hex to console
-; Puts \r\n at the end
+; Draws 2-byte number from BX to es:DI in hex-vram format
 ;
-; Entry: DI
-; Destroys: AX, DX, CX, DI
+; Entry: AH - color, ES, BX - number, DI - destination ptr
+; Destroys: AL, BX, CX
+;		DI - shifted to the end of number
 ;------------------------------------------------------
-PrintHexNumberNL proc
-	call PrintHexNumber
-
-	mov ah, 02h
-	mov dl, 0dh
-	int 21h
-
-	mov ah, 02h
-	mov dl, 0ah
-	int 21h
-
-	ret
-endp
-
-;------------------------------------------------------
-; Prints 2-byte number from di in hex to console
-;
-; Entry: DI
-; Destroys: AX, DX, CX, DI
-;------------------------------------------------------
-PrintHexNumber	proc
-	mov ax, di
-
+DisplayHexWord	proc
 	mov cx, 3d
 @@phn_loop_ror:
-	ror ax, 4d
+	ror bx, 4d
 	loop @@phn_loop_ror
 
 	mov cx, 4d
 @@phn_loop_pr_dg:
-	mov di, ax
-	push ax
+	mov al, bl
 	call PrintHexDigit
-	pop ax
-	rol ax, 4d
+	add di, 2d
+	rol bx, 4d
 	loop @@phn_loop_pr_dg
 
 	ret
@@ -551,23 +758,22 @@ PrintHexNumber	proc
 endp
 
 ;------------------------------------------------------
-; Prints the lowest 4-bit __nibble__ of DI to console
+; Draws the lowest 4-bit __nibble__ of AL to 
+; to es:DI in hex-vram format
 ;
-; Entry: DI
-; Destroys: AX, DX
+; Entry: AH - color, AL
+; Destroys: AL
 ;------------------------------------------------------
 PrintHexDigit	proc
-	mov dx, di
-	and dl, 0fh
+	and al, 0fh
 
-	cmp dl, 10d
+	cmp al, 10d
 	jl @@phd_write_hex_dg
-	add dl, 39d
+	add al, 39d
 
 @@phd_write_hex_dg:
-	add dl, '0'
-	mov ah, 02h
-	int 21h
+	add al, '0'
+	mov es:[di], ax
 
 	ret
 endp
@@ -576,4 +782,103 @@ DEFAULT_BORDER: db 0c9h, 0cdh, 0bbh, 0bah, 0bch, 0cdh, 0c8h, 0bah
 ARGS_STRING_LEN: db 0h
 ARGS_STRING_PTR: dw 81h
 
+;--------------------------------
+; Saves all the program registers except CS and SS + FLAGS
+; to stack. The registers may be loaded via LoadProgramState
+;
+; Destroys: SP - it is shifted
+; BP - not destroyed itself, but is unusable after operation
+;--------------------------------
+SaveProgramState proc
+	push bp
+	mov bp, sp
+	push ax
+	mov ax, [bp + 2] ; ret address here
+
+	; stack is: ret, bp, ax
+
+	push ax
+
+	; stack is: ret, bp, ax, ret
+
+	mov ax, [bp]
+	mov [bp + 2], ax
+	mov ax, [bp - 2]
+	mov [bp], ax
+
+	; stack is: bp, ax, ax, ret
+
+	pop ax
+	add sp, 2
+
+	; stack is: bp, ax
+
+	pushf
+	push bx
+	push cx
+	push dx
+	push si
+	push di
+	push es
+	push ds
+
+	; stack is filled
+
+	push ax ; ret on top of stack
+
+	mov ax, [bp]
+	mov bp, [bp + 2]
+
+	ret
+endp
+
+;--------------------------------
+; Loads program state back saved by SaveProgramState
+; to registers
+;
+; Entry: A valid SP, pointing to the SaveProgramState result
+;
+; Destroys: SP - it is shifted,
+; Every register except CS and SS
+;--------------------------------
+LoadProgramState proc
+	mov bp, sp
+
+	; skip ret. Basically, this is add sp, 2
+	pop ax	    
+
+	; get registers
+	pop ds
+	pop es
+	pop di
+	pop si
+	pop dx
+	pop cx
+	pop bx
+	popf
+
+	mov ax, [bp]
+	push ax
+	; stack is : bp, ax, ret
+	mov bp, sp
+
+	mov ax, [bp + 2]
+	push ax
+	mov ax, [bp + 4]
+	push ax
+	mov ax, [bp]
+	mov [bp + 4], ax
+
+	pop bp
+	pop ax
+	; stack is: ret, ax, ret
+
+	add sp, 4
+
+	ret
+endp
+
+EOPPP:
+
 end Start
+
