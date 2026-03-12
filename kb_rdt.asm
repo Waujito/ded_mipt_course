@@ -6,10 +6,10 @@ W_HEIGHT	equ 25
 W_WIDTH		equ 80
 
 ; FILLER_SYM	equ 0504h ; Pink heart, used for debugging.
-FILLER_SYM	equ 1700h ; Blank symbol with default white font on black border
+FILLER_SYM	equ 3700h ; Blank symbol with default white font on black border
 
-BORDER_COLOR	equ 1bh
-TEXT_COLOR	equ 12h
+BORDER_COLOR	equ 3fh
+TEXT_COLOR	equ 3eh
 
 .code
 org 100h
@@ -37,13 +37,11 @@ CaptureKeyboard		proc
 @@handle_key:
 	cmp al, 0bch
 	jne @@exit_handler
-
-	mov al, byte ptr cs:[offset DO_SHOW_POPUP]
-	xor al, 01h
-	mov byte ptr cs:[offset DO_SHOW_POPUP], al
 	
-	pop ax
-	call ProgTimerHandler
+	pop ax	
+
+	call ProgCaptureHandler
+
 	push ax
 
 @@exit_handler:
@@ -80,7 +78,7 @@ TimerHandler		proc
 	jz @@exit
 
 	pop ax
-	call ProgTimerHandler	
+	call ProgTimerHandler
 	push ax
 
 @@exit:
@@ -143,6 +141,53 @@ Main	proc
 
 endp
 
+ProgCaptureHandler proc
+	call SaveProgramState
+	mov bp, sp
+
+	push cs
+	pop ds
+
+	push 0b800h
+	pop es
+
+	mov al, byte ptr cs:[offset DO_SHOW_POPUP]
+	xor al, 01h
+	mov byte ptr cs:[offset DO_SHOW_POPUP], al
+
+	test al, al
+	jz @@load_buf
+
+	mov si, FRAME_OFFSET
+	mov di, offset RealContentBuffer
+	mov bx, FRAME_NCOLS
+	mov cx, FRAME_NROWS
+	call CopyFrameToBuffer
+
+	call DrawAllRegisters
+
+	mov si, FRAME_OFFSET
+	mov di, offset FrameContentBuffer
+	mov bx, FRAME_NCOLS
+	mov cx, FRAME_NROWS
+	call CopyFrameToBuffer
+
+	jmp @@exit_func
+
+@@load_buf:
+	mov si, offset RealContentBuffer
+	mov di, FRAME_OFFSET
+	mov bx, FRAME_NCOLS
+	mov cx, FRAME_NROWS
+	call CopyBufferToFrame	
+
+@@exit_func:
+	mov sp, bp
+	call LoadProgramState	
+
+	ret
+endp
+
 ;---------------------------------
 ; Implements a custom logic for key handling.
 ; Works only for F2.
@@ -151,16 +196,128 @@ endp
 ; Destroys: AX
 ;---------------------------------
 ProgTimerHandler proc
+	; on stack is flags, cs, ip, handler_ret
 	call SaveProgramState
 	mov bp, sp
 
 	push cs
 	pop ds
 
+	push 0b800h
+	pop es
+
+	call UpdateRealBuffer
+
 	call DrawAllRegisters
+
+	mov si, FRAME_OFFSET
+	mov di, offset FrameContentBuffer
+	mov bx, FRAME_NCOLS
+	mov cx, FRAME_NROWS
+	call CopyFrameToBuffer
 
 	mov sp, bp
 	call LoadProgramState	
+
+	ret
+endp
+
+FRAME_NCOLS equ 20d
+FRAME_NROWS equ 9d
+FRAME_OFFSET equ 2 * 2 * W_WIDTH
+FRAME_BUFLEN equ FRAME_NCOLS * FRAME_NROWS * 2
+
+FrameContentBuffer: db FRAME_BUFLEN DUP(0)
+RealContentBuffer: db FRAME_BUFLEN DUP(0)
+
+
+;------------------------------------------------------
+; Expects ES to be 0b800h
+;------------------------------------------------------
+UpdateRealBuffer proc
+	mov si, FRAME_OFFSET
+	mov di, offset FrameContentBuffer
+
+	mov dx, FRAME_NROWS
+
+@@copy_rowwise:	
+	mov cx, FRAME_NCOLS
+	push si
+
+@@copy_colwise:
+		mov ax, es:[si]
+		cmp ax, ds:[di]
+
+		je @@no_op
+		mov ds:[di + FRAME_BUFLEN], ax
+
+@@no_op:
+		add di, 2
+		add si, 2
+	loop @@copy_colwise
+
+	pop si
+	add si, 2 * W_WIDTH
+
+	dec dx
+	test dx, dx
+	jnz @@copy_rowwise
+
+	ret
+
+endp
+
+;------------------------------------------------------
+; Fill the area in rectangle with FILLER_SYM
+; Starting from es:[si], bx is ncols, cx is nrows, buffer is ds:[di]
+;------------------------------------------------------
+CopyFrameToBuffer proc
+@@copy_rowwise:	
+	mov dx, cx
+	mov cx, bx
+
+	push si
+
+@@copy_colwise:
+	mov ax, es:[si]
+	mov ds:[di], ax
+	add di, 2
+	add si, 2
+	loop @@copy_colwise
+
+	pop si
+	add si, 2 * W_WIDTH
+
+	mov cx, dx
+	loop @@copy_rowwise
+
+	ret
+endp
+
+;------------------------------------------------------
+; Fill the area in rectangle with FILLER_SYM
+; Starting from es:[si], bx is ncols, cx is nrows, buffer is ds:[di]
+;------------------------------------------------------
+CopyBufferToFrame proc
+@@copy_rowwise:	
+	mov dx, cx
+	mov cx, bx
+
+	push di
+
+@@copy_colwise:
+	mov ax, ds:[si]
+	mov es:[di], ax
+	add si, 2
+	add di, 2
+	loop @@copy_colwise
+
+	pop di
+	add di, 2 * W_WIDTH
+
+	mov cx, dx
+	loop @@copy_rowwise
+
 
 	ret
 endp
@@ -169,10 +326,11 @@ DrawAllRegisters proc
 	push 0b800h
 	pop es
 
-	mov bx, 20
-	mov cx, 9
+	mov bx, FRAME_NCOLS
+	mov cx, FRAME_NROWS
+	mov si, FRAME_OFFSET
+
 	mov ah, BORDER_COLOR
-	mov si, 2 * W_WIDTH
 
 	push bx
 	push cx
@@ -193,7 +351,7 @@ DrawAllRegisters proc
 	call CleanRectangle
 
 	pop di
-	add di, 2 * W_WIDTH + 2
+	add di, 2
 	push di
 
 	mov ah, TEXT_COLOR
@@ -263,8 +421,33 @@ DrawAllRegisters proc
 	add di, 2 * W_WIDTH
 	push di
 
+
+	mov si, offset REGISTER_BP_NAME
+	mov bx, [bp + 18]
+	call DisplayRegister	
+
+	pop di
+	add di, 2 * W_WIDTH
+	push di
+
+	mov si, offset REGISTER_CS_NAME
+	mov bx, [bp + 24]
+	call DisplayRegister
+
+	mov al, " "
+	mov es:[di], ax
+	add di, 2
+
+	mov si, offset REGISTER_IP_NAME
+	mov bx, [bp + 22]
+	call DisplayRegister
+
+	pop di
+	add di, 2 * W_WIDTH
+	push di
+
 	mov si, offset REGISTER_FLAGS_NAME
-	mov bx, [bp + 14]
+	mov bx, [bp + 26]
 	call DisplayRegister
 
 	pop di
@@ -281,10 +464,15 @@ REGISTER_CX_NAME: db "cx",0
 REGISTER_DX_NAME: db "dx",0
 REGISTER_SI_NAME: db "si",0
 REGISTER_DI_NAME: db "di",0
-REGISTER_BP_NAME: db "bp",0
 REGISTER_ES_NAME: db "es",0
 REGISTER_DS_NAME: db "ds",0
+REGISTER_BP_NAME: db "bp",0
+REGISTER_CS_NAME: db "cs",0
+REGISTER_IP_NAME: db "ip",0
 REGISTER_FLAGS_NAME: db "flags",0
+
+UWU: db "FUCK YOU 1$"
+UWU2: db "FUCK YOU 2$"
 
 ;------------------------------------------------------
 ; Displays register named in DS:[SI] (in ASCII, escaped by \0)
@@ -324,31 +512,31 @@ endp
 ; Destroys: DX, SI
 ;------------------------------------------------------
 ParseArgs proc
-		mov dl, cs:[80h]
-		mov si, 81h
+	mov dl, cs:[80h]
+	mov si, 81h
 
-		test dx, dx
-		jz @@exit_func
+	test dx, dx
+	jz @@exit_func
 
-		cmp byte ptr cs:[si], 2fh
-		jne @@get_string
+	cmp byte ptr cs:[si], 2fh
+	jne @@get_string
 
-		push si
-		push dx
+	push si
+	push dx
 @@get_string:
 
-		cmp byte ptr cs:[si], 20h
-		jne @@no_esc_space
+	cmp byte ptr cs:[si], 20h
+	jne @@no_esc_space
 
-		dec dx
-		inc si
+	dec dx
+	inc si
 
 @@no_esc_space:
 @@exit_func:
-		mov byte ptr cs:[offset ARGS_STRING_LEN], dl
-		mov word ptr cs:[offset ARGS_STRING_PTR], si
+	mov byte ptr cs:[offset ARGS_STRING_LEN], dl
+	mov word ptr cs:[offset ARGS_STRING_PTR], si
 
-		ret
+	ret
 endp
 
 ;------------------------------------------------------
@@ -505,190 +693,75 @@ endp
 ; Destroys: AL, SI, DX, DI, CX
 ;------------------------------------------------------
 WriteCenteredText	proc
-		push bp
-		mov bp, sp
+	push bp
+	mov bp, sp
 
-		test dx, dx
-		jz @@exit
+	test dx, dx
+	jz @@exit
 
-		push dx
+	push dx
 
-		; if number of symbols is more than ncols,
-		; write capped
+	; if number of symbols is more than ncols,
+	; write capped
 @@write_capped:
-		cmp dx, bx
-		jl @@write_remainded
-		
-		push dx
-		push di
+	cmp dx, bx
+	jl @@write_remainded
+	
+	push dx
+	push di
 
-		mov dx, bx
-		add dx, si
+	mov dx, bx
+	add dx, si
 
 @@wcap_loop:
-		mov al, ds:[si]
-		mov es:[di], ax
+	mov al, ds:[si]
+	mov es:[di], ax
 
-		inc si
-		add di, 2
-		cmp si, dx
-		jl @@wcap_loop
-
-
-		pop di
-		add di, 2 * W_WIDTH
-
-		pop dx
-		sub dx, bx
-		jmp @@write_capped
+	inc si
+	add di, 2
+	cmp si, dx
+	jl @@wcap_loop
 
 
-		add dx, si
+	pop di
+	add di, 2 * W_WIDTH
+
+	pop dx
+	sub dx, bx
+	jmp @@write_capped
+
+
+	add dx, si
 
 
 @@write_remainded:
-		test dx, dx
-		jz @@exit
+	test dx, dx
+	jz @@exit
 
-		mov cx, bx
-		sub cx, dx
-		
-		shr cx, 1
-		; multiply by 2 because of vram symbol size
-		shl cx, 1
+	mov cx, bx
+	sub cx, dx
+	
+	shr cx, 1
+	; multiply by 2 because of vram symbol size
+	shl cx, 1
 
-		add di, cx
-		add dx, si
+	add di, cx
+	add dx, si
 
 @@wremaind_loop:
-		mov al, ds:[si]
-		mov es:[di], ax
+	mov al, ds:[si]
+	mov es:[di], ax
 
-		inc si
-		add di, 2
-		cmp si, dx
-		jl @@wremaind_loop
-
-@@exit:
-
-		mov sp, bp
-		pop bp
-		ret
-endp
-
-
-
-;------------------------------------------------------
-; Shifts previous text in video buffer to n rows up so the new data may be printed out
-;
-; Entry: DI = n
-; Returns: AX = relative pointer to the first symbol of the filled area
-;	The valid area for new information will be [AX; AX + n * W_WIDTH]
-; Expects: ES = 0b800h
-; Destroys: BX, DX, SI, CX
-;------------------------------------------------------
-ShiftText	proc
-
-		; prologue
-		push bp
-		mov bp, sp
-
-		push di				; nrows: bp - 2
-
-		; Exchange cursor position
-		mov ah, 03h
-		xor bh, bh
-		int 10h
-
-		; dh is set to cursor row-pos (0-based)
-		; Move it to bx
-		mov bl, dh
-		xor bh, bh
-		push bx				; cursor row pos: bp - 4
-
-		; dx = W_HEIGHT - n_rows - n_filled
-		mov dx, W_HEIGHT
-		sub dx, di
-		sub dx, bx
-		dec dx
-		neg dx
-		push dx				; Offset position: bp - 6
-
-		cmp dx, 0
-		jg @@shift_existing_text
-
-		mov ax, 2 * W_WIDTH
-		mul bx
-		mov si, ax
-		push si				; Write starting position: bp - 8
-
-		jmp @@fill_free_space
-
-@@shift_existing_text:
-		mov ax, 2 * W_WIDTH
-		mul di
-		mov dx, 2 * W_WIDTH * (W_HEIGHT - 1)
-		sub dx, ax
-		push dx				; Write starting position: bp - 8
-
-		xor di, di
-
-		mov ax, 2 * W_WIDTH
-		mov dx, [bp - 6]
-		mul dx
-		mov si, ax
-
-		mov dx, 2 * W_WIDTH * W_HEIGHT
-		sub dx, si
-	
-		; Copies from es:[SI + i] to es:[DI + i], i = 0...DX
-		call MemMove
-
-@@fill_free_space:
-		mov di, [bp - 2]
-		mov si, [bp - 8]
-
-		mov ax, W_WIDTH
-		mul di
-		mov dx, ax
-
-		; Fill VRAM memory space starting from SI to SI + 2*DX with AX
-		mov ax, FILLER_SYM
-		call FillVRAMSpace
-
-@@shift_cursor:
-		mov dx, [bp - 6]
- 		cmp dx, 0
-		jg @@shift_cursor_down
- 
- 		mov ah, 02h
-
- 		xor bh, bh
-
-		; old cursor pos + nrows to dh
- 		mov dx, [bp - 4]
-		add dx, [bp - 2]
-		mov dh, dl
- 		xor dl, dl
- 		int 10h
-
-		jmp @@exit
-
-@@shift_cursor_down:
- 		mov ah, 02h
-		xor bh, bh
- 		xor dl, dl
-		mov dh, (W_HEIGHT - 1)
- 		int 10h
+	inc si
+	add di, 2
+	cmp si, dx
+	jl @@wremaind_loop
 
 @@exit:
-		mov ax, [bp - 8]
 
-		; epilogue
-		mov sp, bp
-		pop bp
-
-		ret
+	mov sp, bp
+	pop bp
+	ret
 endp
 
 ;-----------------------------------------------------------------------------
@@ -698,18 +771,18 @@ endp
 ; Destroys: AX, DI, SI, DX
 ;-----------------------------------------------------------------------------
 MemMove proc
-		add dx, si
+	add dx, si
 
 @@move_mem_up:
-		mov al, es:[si]
-		mov es:[di], al
+	mov al, es:[si]
+	mov es:[di], al
 
-		inc di
-		inc si
-		cmp si, dx
-		jl @@move_mem_up
+	inc di
+	inc si
+	cmp si, dx
+	jl @@move_mem_up
 
-		ret
+	ret
 endp
 
 ;-----------------------------------------------------------------------------
@@ -718,18 +791,18 @@ endp
 ; Destroys: DX, SI
 ;-----------------------------------------------------------------------------
 FillVRAMSpace proc
-		shl dx, 1
-		add dx, si
+	shl dx, 1
+	add dx, si
 
 @@fill_mem_up:
-		mov es:[si], ax
+	mov es:[si], ax
 
-		inc si
-		inc si
-		cmp si, dx
-		jl @@fill_mem_up
+	inc si
+	inc si
+	cmp si, dx
+	jl @@fill_mem_up
 
-		ret
+	ret
 endp
 
 ;------------------------------------------------------
@@ -748,7 +821,7 @@ DisplayHexWord	proc
 	mov cx, 4d
 @@phn_loop_pr_dg:
 	mov al, bl
-	call PrintHexDigit
+	call DrawHexDigit
 	add di, 2d
 	rol bx, 4d
 	loop @@phn_loop_pr_dg
@@ -764,7 +837,7 @@ endp
 ; Entry: AH - color, AL
 ; Destroys: AL
 ;------------------------------------------------------
-PrintHexDigit	proc
+DrawHexDigit	proc
 	and al, 0fh
 
 	cmp al, 10d
@@ -874,6 +947,76 @@ LoadProgramState proc
 	; stack is: ret, ax, ret
 
 	add sp, 4
+
+	ret
+endp
+
+;------------------------------------------------------
+; Prints 2-byte number from di in hex to console
+; Puts \r\n at the end
+;
+; Entry: DI
+; Destroys: AX, DX, CX, DI
+;------------------------------------------------------
+PrintHexNumberNL proc
+	call PrintHexNumber
+
+	mov ah, 02h
+	mov dl, 0dh
+	int 21h
+
+	mov ah, 02h
+	mov dl, 0ah
+	int 21h
+
+	ret
+endp
+
+;------------------------------------------------------
+; Prints 2-byte number from di in hex to console
+;
+; Entry: DI
+; Destroys: AX, DX, CX, DI
+;------------------------------------------------------
+PrintHexNumber	proc
+	mov ax, di
+
+	mov cx, 3d
+@@phn_loop_ror:
+	ror ax, 4d
+	loop @@phn_loop_ror
+
+	mov cx, 4d
+@@phn_loop_pr_dg:
+	mov di, ax
+	push ax
+	call PrintHexDigit
+	pop ax
+	rol ax, 4d
+	loop @@phn_loop_pr_dg
+
+	ret
+
+endp
+
+;------------------------------------------------------
+; Prints the lowest 4-bit __nibble__ of DI to console
+;
+; Entry: DI
+; Destroys: AX, DX
+;------------------------------------------------------
+PrintHexDigit	proc
+	mov dx, di
+	and dl, 0fh
+
+	cmp dl, 10d
+	jl @@phd_write_hex_dg
+	add dl, 39d
+
+@@phd_write_hex_dg:
+	add dl, '0'
+	mov ah, 02h
+	int 21h
 
 	ret
 endp
