@@ -7,118 +7,233 @@ W_WIDTH		equ 80
 ; FILLER_SYM	equ 0504h ; Pink heart, used for debugging. Replace with 0000 to clear the area
 FILLER_SYM	equ 0700h ; Blank symbol with default white font on black border
 
-BORDER_COLOR	equ 0bh
 TEXT_COLOR	equ 02h
 
 .code
 org 100h
 
-Start		proc
+Start	proc
+	mov bp, sp
 
-		mov bp, sp
+	call ParseArgs
 
-		mov di, 9f8ah
-		call PrintHexNumberNL
+	; ES to vram
+	mov ax, 0b800h
+	mov es, ax
 
-		call ParseArgs
-
-		; ES to vram
-		mov ax, 0b800h
-		mov es, ax
-
-		mov di, 8
-		call ShiftText
+	mov di, 8
+	call ShiftText
 
 
-		mov bx, 32
-		mov cx, 8
+	mov bx, 32
+	mov cx, 8
 
-		mov si, ax
-		mov ax, W_WIDTH
-		sub ax, bx
-		shr ax, 1
-		shl ax, 1
-		add si, ax
+	mov si, ax
+	mov ax, W_WIDTH
+	sub ax, bx
+	shr ax, 1
+	shl ax, 1
+	add si, ax
 
-		push si			; starting of border [bp - 2]
-		push bx			; ncols	 [bp - 4]
-		push cx			; nrows	 [bp - 6]
+	push si			; starting of border [bp - 2]
+	push bx			; ncols	 [bp - 4]
+	push cx			; nrows	 [bp - 6]
 
-		mov ah, BORDER_COLOR
+	mov ah, byte ptr cs:[offset BORDER_COLOR]
 
-		call FillBorder
+	call FillBorder
 
-		mov bx, [bp - 4]
-		mov cx, [bp - 6]
+	mov bx, [bp - 4]
+	mov cx, [bp - 6]
 
-		sub bx, 4
-		sub cx, 4
+	sub bx, 4
+	sub cx, 4
 
 
- 		mov dl, byte ptr cs:[offset ARGS_STRING_LEN]
-		mov si, word ptr cs:[offset ARGS_STRING_PTR]
+	mov dl, byte ptr cs:[offset ARGS_STRING_LEN]
+	mov si, word ptr cs:[offset ARGS_STRING_PTR]
 
-		push cs
-		pop ds
+	push cs
+	pop ds
 
-		mov di, [bp - 2]
-		add di, 2 * 2 * W_WIDTH + 2 * 2
+	mov di, [bp - 2]
+	add di, 2 * 2 * W_WIDTH + 2 * 2
 
-		mov ah, TEXT_COLOR
+	mov ah, TEXT_COLOR
 
-		call WriteCenteredText
+	call WriteCenteredText
 
-		; mov di, [bp - 2]
-		; mov bx, [bp - 4]
-		; mov cx, [bp - 6]
+	; mov di, [bp - 2]
+	; mov bx, [bp - 4]
+	; mov cx, [bp - 6]
 
-		; sub bx, 2
-		; sub cx, 2
-		; add di, 2 * W_WIDTH + 2
+	; sub bx, 2
+	; sub cx, 2
+	; add di, 2 * W_WIDTH + 2
 
-		; call CleanRectangle
+	; call CleanRectangle
 
-		mov ax, 4c00h
-		int 21h
+	mov ax, 4c00h
+	int 21h
 endp
 
+;----------------------------------------------
+; Reads cx chars from ds:[si] and returns ax
+;
+; Destroys: SI, CX
+;
+; Returns: AX, BX = 0 if everything is ok, 1 if failed
+;----------------------------------------------
+HexStringAtoi proc
+	xor bx, bx
+
+@@atoi_loop:
+	mov al, ds:[si]
+	call HexCharAtoi
+
+	test ah, ah
+	jnz @@fail_atoi
+
+	shl bx, 4
+	add bl, al
+	inc si
+
+	loop @@atoi_loop
+
+	mov ax, bx
+	xor bx, bx
+	ret
+@@fail_atoi:
+	mov bx, 1
+	ret
+endp
+
+;----------------------------------------------
+; Reads char from al and returns nibble at al.
+; If char is not valid ah is not zero
+;
+; Returns: AX
+;----------------------------------------------
+HexCharAtoi proc
+	xor ah, ah
+
+	cmp al, '0'
+	jl @@set_invalid
+
+	cmp al, '0' + 9d
+	jg @@parse_letter
+
+	sub al, '0'
+	jmp @@exit
 
 
+@@parse_letter:
+	cmp al, 'a'
+	jl @@set_invalid
+
+	cmp al, 'f'
+	jg @@set_invalid
+
+	sub al, 'a' - 10 ; 'a' - 'a' + 10 = 'a' - ('a' - 10)
+	jmp @@exit
+
+@@set_invalid:
+	inc ah
+@@exit:
+	ret
+endp
 
 ;------------------------------------------------------
-; Parses args
+; Parses args to global variables
 ;
 ; Destroys: DX, SI
 ;------------------------------------------------------
 ParseArgs proc
-		mov dl, cs:[80h]
-		mov si, 81h
+	mov dl, cs:[80h]
+	mov si, 81h
 
-		test dx, dx
-		jz @@exit_func
-
-		cmp byte ptr cs:[si], 2fh
-		jne @@get_string
-
-		push si
-		push dx
-
-
+	test dl, dl
+	jz @@exit_func
 
 @@get_string:
+	cmp byte ptr cs:[si], ' ' ; space
+	jne @@exit_func
 
-		cmp byte ptr cs:[si], 20h
-		jne @@no_esc_space
+	dec dl
+	inc si
 
-		dec dx
-		inc si
+@@parse_argument:
+	test dl, dl
+	jz @@exit_func
 
-@@no_esc_space:
+	cmp byte ptr cs:[si], '/'
+	jne @@exit_func
+
+	dec dl
+	inc si
+
+	test dl, dl
+	jz @@fail_func
+
+	cmp byte ptr cs:[si], 'c'
+	jne @@fail_func
+
+	dec dl
+	inc si
+
+	test dl, dl
+	jz @@fail_func
+
+	cmp byte ptr cs:[si], ' '
+	jne @@fail_func
+
+	dec dl
+	inc si
+
+;
+	test dl, dl
+	jz @@fail_func
+
+	cmp dl, 2
+	jl @@fail_func
+
+	mov cx, 2
+	call HexStringAtoi
+	sub dl, 2
+
+	test bx, bx
+	jnz @@fail_func
+
+	mov bl, al
+	and bl, 0f0h
+	test bl, bl
+	jnz @@fail_func
+
+;
+
+	test dl, dl
+	jz @@fail_func
+
+	cmp byte ptr cs:[si], ' '
+	jne @@fail_func
+
+	dec dl
+	inc si
+
+	mov byte ptr cs:[offset BORDER_COLOR], al
+
+	jmp @@parse_argument
+
 @@exit_func:
-		mov byte ptr cs:[offset ARGS_STRING_LEN], dl
-		mov word ptr cs:[offset ARGS_STRING_PTR], si
+	mov byte ptr cs:[offset ARGS_STRING_LEN], dl
+	mov word ptr cs:[offset ARGS_STRING_PTR], si
 
-		ret
+	xor ax, ax
+	ret
+
+@@fail_func:
+	mov ax, 1
+	ret
 endp
 
 ;------------------------------------------------------
@@ -275,75 +390,75 @@ endp
 ; Destroys: AL, SI, DX, DI, CX
 ;------------------------------------------------------
 WriteCenteredText	proc
-		push bp
-		mov bp, sp
+	push bp
+	mov bp, sp
 
-		test dx, dx
-		jz @@exit
+	test dx, dx
+	jz @@exit
 
-		push dx
+	push dx
 
-		; if number of symbols is more than ncols,
-		; write capped
+	; if number of symbols is more than ncols,
+	; write capped
 @@write_capped:
-		cmp dx, bx
-		jl @@write_remainded
-		
-		push dx
-		push di
+	cmp dx, bx
+	jl @@write_remainded
+	
+	push dx
+	push di
 
-		mov dx, bx
-		add dx, si
+	mov dx, bx
+	add dx, si
 
 @@wcap_loop:
-		mov al, ds:[si]
-		mov es:[di], ax
+	mov al, ds:[si]
+	mov es:[di], ax
 
-		inc si
-		add di, 2
-		cmp si, dx
-		jl @@wcap_loop
-
-
-		pop di
-		add di, 2 * W_WIDTH
-
-		pop dx
-		sub dx, bx
-		jmp @@write_capped
+	inc si
+	add di, 2
+	cmp si, dx
+	jl @@wcap_loop
 
 
-		add dx, si
+	pop di
+	add di, 2 * W_WIDTH
+
+	pop dx
+	sub dx, bx
+	jmp @@write_capped
+
+
+	add dx, si
 
 
 @@write_remainded:
-		test dx, dx
-		jz @@exit
+	test dx, dx
+	jz @@exit
 
-		mov cx, bx
-		sub cx, dx
-		
-		shr cx, 1
-		; multiply by 2 because of vram symbol size
-		shl cx, 1
+	mov cx, bx
+	sub cx, dx
+	
+	shr cx, 1
+	; multiply by 2 because of vram symbol size
+	shl cx, 1
 
-		add di, cx
-		add dx, si
+	add di, cx
+	add dx, si
 
 @@wremaind_loop:
-		mov al, ds:[si]
-		mov es:[di], ax
+	mov al, ds:[si]
+	mov es:[di], ax
 
-		inc si
-		add di, 2
-		cmp si, dx
-		jl @@wremaind_loop
+	inc si
+	add di, 2
+	cmp si, dx
+	jl @@wremaind_loop
 
 @@exit:
 
-		mov sp, bp
-		pop bp
-		ret
+	mov sp, bp
+	pop bp
+	ret
 endp
 
 
@@ -359,106 +474,106 @@ endp
 ;------------------------------------------------------
 ShiftText	proc
 
-		; prologue
-		push bp
-		mov bp, sp
+	; prologue
+	push bp
+	mov bp, sp
 
-		push di				; nrows: bp - 2
+	push di				; nrows: bp - 2
 
-		; Exchange cursor position
-		mov ah, 03h
-		xor bh, bh
-		int 10h
+	; Exchange cursor position
+	mov ah, 03h
+	xor bh, bh
+	int 10h
 
-		; dh is set to cursor row-pos (0-based)
-		; Move it to bx
-		mov bl, dh
-		xor bh, bh
-		push bx				; cursor row pos: bp - 4
+	; dh is set to cursor row-pos (0-based)
+	; Move it to bx
+	mov bl, dh
+	xor bh, bh
+	push bx				; cursor row pos: bp - 4
 
-		; dx = W_HEIGHT - n_rows - n_filled
-		mov dx, W_HEIGHT
-		sub dx, di
-		sub dx, bx
-		dec dx
-		neg dx
-		push dx				; Offset position: bp - 6
+	; dx = W_HEIGHT - n_rows - n_filled
+	mov dx, W_HEIGHT
+	sub dx, di
+	sub dx, bx
+	dec dx
+	neg dx
+	push dx				; Offset position: bp - 6
 
-		cmp dx, 0
-		jg @@shift_existing_text
+	cmp dx, 0
+	jg @@shift_existing_text
 
-		mov ax, 2 * W_WIDTH
-		mul bx
-		mov si, ax
-		push si				; Write starting position: bp - 8
+	mov ax, 2 * W_WIDTH
+	mul bx
+	mov si, ax
+	push si				; Write starting position: bp - 8
 
-		jmp @@fill_free_space
+	jmp @@fill_free_space
 
 @@shift_existing_text:
-		mov ax, 2 * W_WIDTH
-		mul di
-		mov dx, 2 * W_WIDTH * (W_HEIGHT - 1)
-		sub dx, ax
-		push dx				; Write starting position: bp - 8
+	mov ax, 2 * W_WIDTH
+	mul di
+	mov dx, 2 * W_WIDTH * (W_HEIGHT - 1)
+	sub dx, ax
+	push dx				; Write starting position: bp - 8
 
-		xor di, di
+	xor di, di
 
-		mov ax, 2 * W_WIDTH
-		mov dx, [bp - 6]
-		mul dx
-		mov si, ax
+	mov ax, 2 * W_WIDTH
+	mov dx, [bp - 6]
+	mul dx
+	mov si, ax
 
-		mov dx, 2 * W_WIDTH * W_HEIGHT
-		sub dx, si
-	
-		; Copies from es:[SI + i] to es:[DI + i], i = 0...DX
-		call MemMove
+	mov dx, 2 * W_WIDTH * W_HEIGHT
+	sub dx, si
+
+	; Copies from es:[SI + i] to es:[DI + i], i = 0...DX
+	call MemMove
 
 @@fill_free_space:
-		mov di, [bp - 2]
-		mov si, [bp - 8]
+	mov di, [bp - 2]
+	mov si, [bp - 8]
 
-		mov ax, W_WIDTH
-		mul di
-		mov dx, ax
+	mov ax, W_WIDTH
+	mul di
+	mov dx, ax
 
-		; Fill VRAM memory space starting from SI to SI + 2*DX with AX
-		mov ax, FILLER_SYM
-		call FillVRAMSpace
+	; Fill VRAM memory space starting from SI to SI + 2*DX with AX
+	mov ax, FILLER_SYM
+	call FillVRAMSpace
 
 @@shift_cursor:
-		mov dx, [bp - 6]
- 		cmp dx, 0
-		jg @@shift_cursor_down
- 
- 		mov ah, 02h
+	mov dx, [bp - 6]
+	cmp dx, 0
+	jg @@shift_cursor_down
 
- 		xor bh, bh
+	mov ah, 02h
 
-		; old cursor pos + nrows to dh
- 		mov dx, [bp - 4]
-		add dx, [bp - 2]
-		mov dh, dl
- 		xor dl, dl
- 		int 10h
+	xor bh, bh
 
-		jmp @@exit
+	; old cursor pos + nrows to dh
+	mov dx, [bp - 4]
+	add dx, [bp - 2]
+	mov dh, dl
+	xor dl, dl
+	int 10h
+
+	jmp @@exit
 
 @@shift_cursor_down:
- 		mov ah, 02h
-		xor bh, bh
- 		xor dl, dl
-		mov dh, (W_HEIGHT - 1)
- 		int 10h
+	mov ah, 02h
+	xor bh, bh
+	xor dl, dl
+	mov dh, (W_HEIGHT - 1)
+	int 10h
 
 @@exit:
-		mov ax, [bp - 8]
+	mov ax, [bp - 8]
 
-		; epilogue
-		mov sp, bp
-		pop bp
+	; epilogue
+	mov sp, bp
+	pop bp
 
-		ret
+	ret
 endp
 
 ;-----------------------------------------------------------------------------
@@ -468,18 +583,18 @@ endp
 ; Destroys: AX, DI, SI, DX
 ;-----------------------------------------------------------------------------
 MemMove proc
-		add dx, si
+	add dx, si
 
 @@move_mem_up:
-		mov al, es:[si]
-		mov es:[di], al
+	mov al, es:[si]
+	mov es:[di], al
 
-		inc di
-		inc si
-		cmp si, dx
-		jl @@move_mem_up
+	inc di
+	inc si
+	cmp si, dx
+	jl @@move_mem_up
 
-		ret
+	ret
 endp
 
 ;-----------------------------------------------------------------------------
@@ -488,18 +603,18 @@ endp
 ; Destroys: DX, SI
 ;-----------------------------------------------------------------------------
 FillVRAMSpace proc
-		shl dx, 1
-		add dx, si
+	shl dx, 1
+	add dx, si
 
 @@fill_mem_up:
-		mov es:[si], ax
+	mov es:[si], ax
 
-		inc si
-		inc si
-		cmp si, dx
-		jl @@fill_mem_up
+	inc si
+	inc si
+	cmp si, dx
+	jl @@fill_mem_up
 
-		ret
+	ret
 endp
 
 ;------------------------------------------------------
@@ -575,5 +690,6 @@ endp
 DEFAULT_BORDER: db 0c9h, 0cdh, 0bbh, 0bah, 0bch, 0cdh, 0c8h, 0bah
 ARGS_STRING_LEN: db 0h
 ARGS_STRING_PTR: dw 81h
+BORDER_COLOR: 	db 0bh
 
 end Start
