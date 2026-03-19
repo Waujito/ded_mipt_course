@@ -26,16 +26,16 @@ CaptureKeyboard		proc
 
 	in al, 60h
 	mov ah, al
-	and ah, 7fh
+	and ah, not 80h
 
-	cmp ah, 3ch
+	cmp ah, 3ch	; F2 press/release
 	je @@handle_key
 
 	pop ax
 	jmp DOS_INT9_ORIG_FJMP
 
 @@handle_key:
-	cmp al, 0bch
+	cmp al, 03ch or 80h	; F2 release
 	jne @@exit_handler
 	
 	pop ax	
@@ -278,12 +278,17 @@ CopyFrameToBuffer proc
 
 	push si
 
-@@copy_colwise:
-	mov ax, es:[si]
-	mov ds:[di], ax
-	add di, 2
-	add si, 2
-	loop @@copy_colwise
+	push ds
+	push es
+	pop ds
+	pop es
+
+	rep movsw
+
+	push ds
+	push es
+	pop ds
+	pop es
 
 	pop si
 	add si, 2 * W_WIDTH
@@ -305,12 +310,7 @@ CopyBufferToFrame proc
 
 	push di
 
-@@copy_colwise:
-	mov ax, ds:[si]
-	mov es:[di], ax
-	add si, 2
-	add di, 2
-	loop @@copy_colwise
+	rep movsw
 
 	pop di
 	add di, 2 * W_WIDTH

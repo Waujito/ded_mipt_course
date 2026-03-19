@@ -7,8 +7,6 @@ W_WIDTH		equ 80
 ; FILLER_SYM	equ 0504h ; Pink heart, used for debugging. Replace with 0000 to clear the area
 FILLER_SYM	equ 0700h ; Blank symbol with default white font on black border
 
-TEXT_COLOR	equ 02h
-
 .code
 org 100h
 
@@ -49,7 +47,6 @@ Start	proc
 	sub bx, 4
 	sub cx, 4
 
-
 	mov dl, byte ptr cs:[offset ARGS_STRING_LEN]
 	mov si, word ptr cs:[offset ARGS_STRING_PTR]
 
@@ -59,7 +56,7 @@ Start	proc
 	mov di, [bp - 2]
 	add di, 2 * 2 * W_WIDTH + 2 * 2
 
-	mov ah, TEXT_COLOR
+	mov ah, byte ptr cs:[offset TEXT_COLOR]
 
 	call WriteCenteredText
 
@@ -149,57 +146,222 @@ endp
 ; Destroys: DX, SI
 ;------------------------------------------------------
 ParseArgs proc
-	mov dl, cs:[80h]
+	xor cx, cx
+	mov cl, cs:[80h]
 	mov si, 81h
 
-	test dl, dl
+	test cx, cx
 	jz @@exit_func
 
-@@get_string:
 	cmp byte ptr cs:[si], ' ' ; space
 	jne @@exit_func
 
-	dec dl
+	dec cx
 	inc si
 
 @@parse_argument:
-	test dl, dl
+	test cx, cx
 	jz @@exit_func
 
-	cmp byte ptr cs:[si], '/'
-	jne @@exit_func
+	call ParseArgument
+	cmp ax, 1
+	je @@exit_func
+	cmp ax, 2
+	je @@fail_func
 
-	dec dl
+	jmp @@parse_argument
+
+@@exit_func:
+	mov byte ptr cs:[offset ARGS_STRING_LEN], cl
+	mov word ptr cs:[offset ARGS_STRING_PTR], si
+
+	xor ax, ax
+	ret
+@@fail_func:
+	mov ax, 1
+	ret
+endp
+
+ArgsSkipSpaces proc
+	test cx, cx
+	jz @@exit
+
+@@skipper:
+	cmp byte ptr [si], ' '
+	jne @@exit
+	inc si
+	loop @@skipper
+@@exit:
+	ret
+endp
+
+;--------------------------------------------------
+; Reads one argument from args cmdline
+; Cmdline: is passed via ds:[si], with cx length
+; Destroys: 
+; Returns: AX = 0 ^ SI, CX - parsed successful, cmdline after argument
+;	   AX = 1, SI and CX left untouched - when no more arguments are to be parsed
+;	   AX = 2, SI and CX left untouched - when parsing failed
+;--------------------------------------------------
+ParseArgument proc
+	push si
+	push cx
+
+	call ArgsSkipSpaces
+	test cx, cx
+	jz @@noop_func
+
+; dash is end of args indicator
+	cmp byte ptr [si], '-'
+	jne @@skip_noop
+
+	dec cx
 	inc si
 
-	test dl, dl
+	pop ax
+	pop ax
+	mov ax, 1
+
+	ret
+
+@@skip_noop:
+	
+; parse argument
+	cmp byte ptr [si], '/'
+	jne @@noop_func
+
+	dec cx
+	inc si
+
+	test cx, cx
 	jz @@fail_func
 
-	cmp byte ptr cs:[si], 'c'
-	jne @@fail_func
+; match argument
+	xor dx, dx
+	mov di, offset ARGLIST
+@@arglist_roller:
+	push si
+	push cx
+	
+@@argstring_roller:
+	mov al, [si]
+	cmp al, ' '
+	je @@arg_parsed
 
-	dec dl
+	mov al, cs:[di]
+	cmp al, ';'
+	je @@skip_argument
+
+	inc di
+
+	cmp al, byte ptr [si]
+	jne @@skip_argument
+
 	inc si
+	loop @@argstring_roller
 
-	test dl, dl
+	jmp @@arg_parsed
+
+@@skip_argument:
+	pop cx
+	pop si
+
+@@cont_skipping:
+	mov al, cs:[di]
+	inc di
+	cmp al, '$'
+	je @@fail_func
+	cmp al, ';'
+	jne @@cont_skipping	
+
+	inc dx
+	jmp @@arglist_roller
+
+@@arg_parsed:
+	pop ax
+	pop ax ; old si
+
+	; case for slash-space
+	cmp si, ax
+	je @@fail_func
+
+	call ArgsSkipSpaces
+	
+	test cx, cx
 	jz @@fail_func
+	
+	; Read argument payload
+	push si
+	push cx
 
-	cmp byte ptr cs:[si], ' '
-	jne @@fail_func
-
-	dec dl
+@@arg_payload:
+	cmp byte ptr [si],  ' ' 
+	je @@payload_parsed
 	inc si
+	loop @@arg_payload
 
+@@payload_parsed:
+	push si
+	push cx
+
+	pop ax
+	pop ax
+	pop ax ; old cx
+	pop di ; old si
+	sub ax, cx ; payload len
+
+	; payload is ds:di, ax
+	
+	push si	
+	push cx
+	mov si, di
+	mov cx, ax
+	
+	call HandleArgument
+
+	pop cx
+	pop si
+
+	call ArgsSkipSpaces
+
+	; end of parsing	
+
+	pop ax
+	pop ax
+	xor ax, ax
+	ret
+
+@@noop_func:
+	mov ax, 1
+	jmp @@exit_func
+@@fail_func:
+	mov ax, 2
+	jmp @@exit_func
+@@exit_func:
+	pop cx
+	pop si
+
+	ret
+endp
+
+;------------------------------------------------------
+; Handles an argument payload from cmdline
+; Entry: ds:[si] is payload start, cx is payload len
+; dx is argument id (and index of argument in ARGLIST
 ;
-	test dl, dl
-	jz @@fail_func
+; Returns: AX = 0 if parsing successed
+;	   AX = 1 if parsing failed
+;------------------------------------------------------
+HandleArgument proc
+@@case_00:
+;			0th argument
+	cmp dx, 0
+	jne @@case_01
 
-	cmp dl, 2
-	jl @@fail_func
+	cmp cx, 2
+	jne @@fail_func
 
-	mov cx, 2
 	call HexStringAtoi
-	sub dl, 2
 
 	test bx, bx
 	jnz @@fail_func
@@ -209,32 +371,40 @@ ParseArgs proc
 	test bl, bl
 	jnz @@fail_func
 
-;
-
-	test dl, dl
-	jz @@fail_func
-
-	cmp byte ptr cs:[si], ' '
-	jne @@fail_func
-
-	dec dl
-	inc si
-
 	mov byte ptr cs:[offset BORDER_COLOR], al
 
-	jmp @@parse_argument
+	jmp @@success_func
 
-@@exit_func:
-	mov byte ptr cs:[offset ARGS_STRING_LEN], dl
-	mov word ptr cs:[offset ARGS_STRING_PTR], si
+@@case_01:
+	cmp dx, 1
+	jne @@fail_func
 
-	xor ax, ax
-	ret
+	cmp cx, 2
+	jne @@fail_func
+
+	call HexStringAtoi
+
+	test bx, bx
+	jnz @@fail_func
+
+	mov bl, al
+	and bl, 0f0h
+	test bl, bl
+	jnz @@fail_func
+
+	mov byte ptr cs:[offset TEXT_COLOR], al
+
+	jmp @@success_func
 
 @@fail_func:
 	mov ax, 1
 	ret
+@@success_func:
+	xor ax, ax
+	ret
 endp
+
+ARGLIST: db "c;fgcol;bgcol$"
 
 ;------------------------------------------------------
 ; Fills the Border. Uses SI as index of start,
@@ -583,17 +753,27 @@ endp
 ; Destroys: AX, DI, SI, DX
 ;-----------------------------------------------------------------------------
 MemMove proc
+	push cx
+	mov cx, dx
 	add dx, si
 
-@@move_mem_up:
-	mov al, es:[si]
-	mov es:[di], al
+	push ds
+	push es
+	pop ds
 
-	inc di
-	inc si
-	cmp si, dx
-	jl @@move_mem_up
+	rep movsb
 
+; @@move_mem_up:
+; 	mov al, es:[si]
+; 	mov es:[di], al
+; 
+; 	inc di
+; 	inc si
+; 	cmp si, dx
+; 	jl @@move_mem_up
+
+	pop ds
+	pop cx
 	ret
 endp
 
@@ -691,5 +871,6 @@ DEFAULT_BORDER: db 0c9h, 0cdh, 0bbh, 0bah, 0bch, 0cdh, 0c8h, 0bah
 ARGS_STRING_LEN: db 0h
 ARGS_STRING_PTR: dw 81h
 BORDER_COLOR: 	db 0bh
+TEXT_COLOR: 	db 02h
 
 end Start

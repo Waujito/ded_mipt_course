@@ -27,7 +27,6 @@ Start:
 	call SecondFN;done
 	call ThirdFN;done
 	call FourthFN; done
-	call Fo
 
 
 FourthFN:
@@ -43,7 +42,6 @@ ThirdFN proc
 	mov bp, sp
 	mov ax, word ptr [bp]
 	and ax, 0f800h
-	; jmp D2PT
 	db 0fh, 85h, 87h, 00h
 
 	;jnz near ptr D2PT
