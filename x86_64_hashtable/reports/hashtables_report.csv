@@ -1,0 +1,57 @@
+optim_strat,ith_test,time
+"",1,1978.639689
+"",2,1902.537622
+"",3,1931.584098
+"",4,1908.517878
+"",5,1867.925071
+"",6,1969.385956
+"",7,1928.294161
+"crc32",1,1545.243721
+"crc32",2,1562.391341
+"crc32",3,1600.906556
+"crc32",4,1616.687820
+"crc32",5,1584.749517
+"crc32",6,1553.692806
+"crc32",7,1567.488336
+"asm_strcmp",1,1838.525186
+"asm_strcmp",2,1835.331499
+"asm_strcmp",3,1878.325989
+"asm_strcmp",4,1867.653048
+"asm_strcmp",5,1840.146723
+"asm_strcmp",6,1825.712161
+"asm_strcmp",7,1814.124390
+"crc32 asm_strcmp",1,1398.897888
+"crc32 asm_strcmp",2,1389.110849
+"crc32 asm_strcmp",3,1394.728335
+"crc32 asm_strcmp",4,1420.208055
+"crc32 asm_strcmp",5,1377.348393
+"crc32 asm_strcmp",6,1389.514233
+"crc32 asm_strcmp",7,1396.028631
+"strlen",1,1871.016248
+"strlen",2,1856.007207
+"strlen",3,1865.854218
+"strlen",4,1896.708831
+"strlen",5,1873.971694
+"strlen",6,1872.226218
+"strlen",7,1913.800477
+"asm_strcmp strlen",1,1810.054030
+"asm_strcmp strlen",2,1785.118005
+"asm_strcmp strlen",3,1798.248501
+"asm_strcmp strlen",4,1808.038972
+"asm_strcmp strlen",5,1792.964320
+"asm_strcmp strlen",6,1787.692980
+"asm_strcmp strlen",7,1789.822744
+"crc32 strlen",1,1609.802056
+"crc32 strlen",2,1594.296808
+"crc32 strlen",3,1568.054537
+"crc32 strlen",4,1592.944660
+"crc32 strlen",5,1630.591283
+"crc32 strlen",6,1548.684480
+"crc32 strlen",7,1550.824799
+"crc32 asm_strcmp strlen",1,1408.450523
+"crc32 asm_strcmp strlen",2,1421.755030
+"crc32 asm_strcmp strlen",3,1384.497920
+"crc32 asm_strcmp strlen",4,1394.180119
+"crc32 asm_strcmp strlen",5,1390.565610
+"crc32 asm_strcmp strlen",6,1413.225332
+"crc32 asm_strcmp strlen",7,1388.472400
