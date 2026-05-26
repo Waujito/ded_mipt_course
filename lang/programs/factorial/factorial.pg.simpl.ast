@@ -1,0 +1,1 @@
+(; (func (, ("factorial" nil nil) ("x" nil nil)) (; (; (if (<= ("x" nil nil) (1 nil nil)) (else (return (1 nil nil) nil) nil)) (= ("x" nil nil) (* ("x" nil nil) (call ("factorial" nil nil) (- ("x" nil nil) (1 nil nil)))))) ("x" nil nil))) (main (, ("main" nil nil) nil) (print (call ("factorial" nil nil) (5 nil nil)) nil)))

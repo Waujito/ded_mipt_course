@@ -1,0 +1,22 @@
+func main() {
+	a := input();
+	b := input();
+	c := input();
+
+	D := b * b - 4 * a * c;
+	print(D);
+
+	if (D > 0) {
+		x1 := ((0-b) + sqrt(D)) / (2 * a);
+		x2 := ((0-b) - sqrt(D)) / (2 * a);
+		print(2);
+		print(x1);
+		print(x2);
+	} else if (D == 0) {
+		x := (0-b) / (2 * a);
+		print(1);
+		print(x);
+	} else {
+		print(0);
+	}
+}

@@ -1,0 +1,12 @@
+func factorial(x) {
+	if (x <= 1) {
+		return (1);
+	}
+
+	x = x * factorial(x - 1);
+	return x;
+}
+
+func main() {
+	print(factorial(5));
+}

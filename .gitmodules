@@ -5,3 +5,7 @@
 [submodule "spu/deps/ded_spu"]
 	path = spu/deps/ded_spu
 	url = git@github.com:Waujito/ded_spu.git
+
+[submodule "lang/deps/ded_tasks"]
+	path = lang/deps/ded_tasks
+	url = git@github.com:Waujito/ded_tasks

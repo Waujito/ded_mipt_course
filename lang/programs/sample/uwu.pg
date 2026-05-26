@@ -1,0 +1,64 @@
+func clearArea(cdmempt) {
+	cdheh := scrht();
+	cdweh := scrwt();
+
+	cdn := (cdheh * cdweh + 8);
+	cdmx := cdmempt + cdn;
+	while (cdmempt < cdmx) {
+		cdmempt <- 0;
+		cdmempt = cdmempt + 1;
+	}
+
+	return (0);
+}
+
+func WriteCoords(memAddr, wcxpos, wcypos, wcbit) {
+	wch := scrht();
+	wcw := scrwt();
+
+	ndc := wcypos * wcw + wcxpos;
+
+	pointIndex := ndc >> 3;
+	pointAddress := memAddr + pointIndex;
+	pointPosition := ndc & 0x07;
+
+	pointData := memload(pointAddress);
+
+	pointData = pointData | (wcbit << (8 * pointPosition));
+
+	print(pointIndex);
+	print(pointPosition);
+	print(pointAddress);
+
+	pointAddress <- pointData;
+
+	print(pointData);
+}
+
+func main() {
+	wchtt := scrht();
+	wcwtt := scrwt();
+	mempt := 50;
+
+	clearArea(mempt);
+
+	radius := 12;
+	centerx := 7;
+	centery := 7;
+
+	yyy := 0;
+	while (yyy < wchtt) {
+		xxx := 0;
+		while (xxx < wcwtt) {
+			if ((((xxx - centerx) * (xxx - centerx) +
+					(yyy - centery) * (yyy - centery)) <= radius)) {
+				print(xxx);
+				print(yyy);
+				WriteCoords(mempt, xxx, yyy, 1);
+			}
+			xxx = xxx + 1;
+		}
+		yyy = yyy + 1;
+	}
+	draw(mempt);
+}
