@@ -1,3 +1,7 @@
 [submodule "derivator/deps/ded_tasks"]
 	path = derivator/deps/ded_tasks
 	url = git@github.com:Waujito/ded_tasks
+
+[submodule "spu/deps/ded_spu"]
+	path = spu/deps/ded_spu
+	url = git@github.com:Waujito/ded_spu.git
